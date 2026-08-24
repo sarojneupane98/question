@@ -1,0 +1,363 @@
+/* --- Variables & Base Styles --- */
+:root {
+    --bg-color: #e8eaed;
+    --primary-color: #1a73e8;
+    --primary-hover: #e8f0fe;
+    --danger-color: #d93025;
+    --danger-bg: #fce8e6;
+    --border-color: #dadce0;
+    --text-main: #3c4043;
+    --text-muted: #5f6368;
+}
+
+body {
+    background-color: var(--bg-color);
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.workspace {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* --- Sidebar Toolbox --- */
+.sidebar-toolbox {
+    width: 250px;
+    background: white;
+    padding: 20px;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+    position: fixed;
+    height: 100vh;
+    overflow-y: auto;
+    box-sizing: border-box;
+    z-index: 100;
+}
+
+.logo { font-size: 20px; font-weight: bold; color: var(--primary-color); margin-bottom: 5px; }
+.tool-desc { font-size: 12px; color: var(--text-muted); margin-bottom: 20px; }
+.divider { height: 1px; background: var(--border-color); margin: 15px 0; }
+
+.tool-btn {
+    width: 100%;
+    text-align: left;
+    background: #f8f9fa;
+    border: 1px solid var(--border-color);
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-main);
+    transition: background 0.2s;
+}
+
+.tool-btn:active, .tool-btn:hover { background: var(--primary-hover); }
+.tool-btn span { margin-right: 8px; font-size: 16px; }
+
+.action-btn { width: 100%; padding: 12px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; margin-bottom: 10px; }
+.print-btn { background: var(--primary-color); color: white; }
+.clear-btn { background: var(--danger-bg); color: var(--danger-color); }
+
+/* --- A4 Paper Workspace --- */
+.paper-wrapper {
+    flex: 1;
+    margin-left: 250px;
+    padding: 30px;
+    display: flex;
+    justify-content: center;
+}
+
+.a4-paper {
+    background: white;
+    width: 210mm;
+    min-height: 297mm;
+    padding: 25mm 20mm;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    box-sizing: border-box;
+    font-family: 'Tahoma', sans-serif; 
+    font-size: 16px; 
+}
+
+/* Header Styling */
+.exam-header { border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 20px; }
+.school-header { text-align: center; margin-bottom: 15px; }
+
+.exam-meta { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+.meta-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px; }
+.meta-left, .meta-center, .meta-right { flex: 1; }
+.meta-center { text-align: center; }
+.meta-right { text-align: right; }
+.fw-normal { font-weight: normal; }
+
+/* Student Details Row */
+.student-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    font-size: 16px;
+    font-weight: bold;
+    margin-top: 15px;
+    gap: 15px;
+}
+
+.student-field { display: flex; align-items: flex-end; white-space: nowrap; }
+
+/* Update these specific classes in your CSS */
+.name-field { flex: 4; } /* Drastically increases the space for the name */
+.sec-field, .roll-field, .inv-field { flex: 1; }
+
+.fill-blank { 
+    flex-grow: 1; 
+    border-bottom: 1.5px dotted #000; /* Made slightly thicker for better print visibility */
+    min-height: 18px; 
+    margin-left: 8px; 
+    display: inline-block; 
+}
+
+.question-block {
+    position: relative;
+    padding: 15px;
+    margin-bottom: 25px; /* Increased to give space for the bottom button */
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+    background: #fafafa;
+}
+
+.question-controls {
+    position: absolute;
+    bottom: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 15px;
+    padding: 4px 12px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    z-index: 10;
+}
+
+.delete-btn { 
+    background: none; 
+    border: none; 
+    color: var(--danger-color); 
+    cursor: pointer; 
+    font-size: 12px; 
+    padding: 0; 
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.q-text { flex-grow: 1; margin-right: 15px; }
+
+.editable-field { outline: none; min-width: 20px; display: inline-block; border-radius: 2px; }
+.editable-field:focus { background-color: #fff3cd; }
+
+.delete-sub-btn { background: var(--danger-bg); border: none; color: var(--danger-color); border-radius: 4px; padding: 2px 6px; font-size: 12px; margin-left: 8px; cursor: pointer; }
+.add-sub-btn { background: var(--primary-hover); border: none; color: var(--primary-color); padding: 6px 12px; border-radius: 4px; font-size: 12px; margin-top: 10px; cursor: pointer; display: block; }
+.image-upload-area { border: 2px dashed var(--primary-color); padding: 20px; text-align: center; cursor: pointer; background: var(--primary-hover); border-radius: 8px; }
+
+/* --- Mobile Responsiveness --- */
+@media screen and (max-width: 768px) {
+    .workspace { flex-direction: column; }
+    
+    .sidebar-toolbox {
+        position: relative;
+        width: 100%;
+        height: auto;
+        padding: 15px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    .button-grid { display: flex; flex-wrap: wrap; gap: 5px; }
+    .button-grid .tool-btn { flex: 1 1 45%; margin-bottom: 0; font-size: 13px; padding: 8px; }
+    .action-grid { display: flex; gap: 10px; }
+    .paper-wrapper {
+        flex: 1;
+        margin-left: 0;
+        padding: 15px;
+        display: flex;
+        justify-content: center;
+    }
+    .a4-paper {
+        background: white;
+        width: 100%;
+        max-width: 210mm; /* Adapts to screen, but never exceeds A4 width */
+        min-height: auto; 
+        padding: 20px; /* Comfortable padding for screen editing */
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        box-sizing: border-box;
+        
+        /* Global Font Settings */
+        font-family: 'Tahoma', sans-serif;
+        font-size: 16px; /* Adjusted */
+    }
+}
+.force-a4-pdf, @media print {
+    .a4-paper {
+        width: 210mm !important;
+        max-width: 210mm !important;
+        min-height: 297mm !important;
+        padding: 25mm 20mm !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+    }
+}
+
+/* --- Typography (Headings 18px Bold, Body 16px) --- */
+.school-header h2 { margin: 0; font-size: 18px; font-weight: bold; text-transform: uppercase; }
+.school-header p { margin: 4px 0 0 0; font-size: 18px; font-weight: bold; }
+.question-header { font-size: 18px; font-weight: bold; margin-bottom: 10px; display: flex; justify-content: space-between; }
+.subject-name { font-size: 18px; font-weight: bold; border-bottom: 1px dotted #000; padding-bottom: 2px; }
+
+/* Enforce 16px for all sub-items and fields */
+.exam-meta, .student-details, .sub-item, .editable-field, .fib-hint-container {
+    font-size: 16px;
+}
+.tool-btn {
+    font-size: 14px; /* Keep sidebar buttons a bit smaller */
+}
+
+/* --- Print Settings --- */
+@media print {
+    body { background: white; }
+    .sidebar-toolbox, .no-print, .question-controls, .delete-sub-btn, .add-sub-btn { display: none !important; }
+    .paper-wrapper { margin-left: 0; padding: 0; }
+    .a4-paper { box-shadow: none; padding: 0; width: 100%; min-height: auto; }
+    .question-block { padding: 5px 0; border: none; background: transparent; margin-bottom: 15px; }
+    .editable-field:focus { background-color: transparent; }
+    .student-details { flex-wrap: wrap; gap: 10px; }
+    .name-field { flex: 1 1 100%; }
+    .sec-field, .roll-field, .inv-field { flex: 1 1 30%; }
+}
+/* --- Nested MCQ Options Styling --- */
+.option-list { 
+    display: flex; 
+    flex-wrap: wrap; 
+    gap: 12px; 
+    align-items: center; 
+    margin-left: 20px; 
+    margin-top: 8px; 
+}
+.mcq-option { 
+    display: flex; 
+    align-items: center; 
+}
+.delete-opt-btn { 
+    background: var(--danger-bg); 
+    border: none; 
+    color: var(--danger-color); 
+    border-radius: 4px; 
+    padding: 2px 6px; 
+    font-size: 12px; 
+    margin-left: 4px; 
+    cursor: pointer; 
+}
+.add-opt-btn { 
+    background: var(--primary-hover); 
+    border: none; 
+    color: var(--primary-color); 
+    padding: 4px 8px; 
+    border-radius: 4px; 
+    font-size: 12px; 
+    cursor: pointer; 
+}
+/* --- Fill in the Blanks Options Styling --- */
+.fib-hint-container {
+    border: 1px solid #000;
+    padding: 15px;
+    text-align: center;
+    margin-bottom: 15px;
+    position: relative;
+    border-radius: 4px;
+    background: #fff;
+}
+.delete-hint-box-btn {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: var(--danger-bg);
+    color: var(--danger-color);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.fib-words {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+    align-items: center;
+}
+.fib-word-item {
+    display: flex;
+    align-items: center;
+    background: #f8f9fa;
+    padding: 4px 10px;
+    border-radius: 15px;
+    border: 1px dashed var(--border-color);
+}
+.delete-word-btn {
+    background: none;
+    border: none;
+    color: var(--danger-color);
+    font-size: 12px;
+    margin-left: 6px;
+    cursor: pointer;
+    padding: 0;
+}
+.add-word-btn {
+    background: var(--primary-hover);
+    border: none;
+    color: var(--primary-color);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    margin-top: 10px;
+    cursor: pointer;
+}
+
+/* Ensure the hint box prints beautifully */
+@media print {
+    .fib-word-item {
+        background: transparent;
+        border: none;
+        padding: 0;
+    }
+}
+/* --- Bilingual Typography: Preeti Font --- */
+@font-face {
+    font-family: 'Preeti';
+    src: url('Preeti.ttf') format('truetype'); 
+    /* Make sure Preeti.ttf is in the same folder as this CSS file! */
+}
+
+/* When the toggle is checked, this class applies to the paper */
+.nepali-text,
+.nepali-text .editable-field,
+.nepali-text .sub-item,
+.nepali-text .fib-hint-container,
+.nepali-text .student-details {
+    font-family: 'Preeti', sans-serif !important;
+    font-size: 20px !important; /* Bumped up for Preeti readability */
+}
+
+.nepali-text .school-header h2,
+.nepali-text .school-header p,
+.nepali-text .question-header,
+.nepali-text .subject-name {
+    font-family: 'Preeti', sans-serif !important;
+    font-size: 24px !important; /* Bumped up for headers */
+}
+
+/* Ensure the sub-labels (a, b, i, ii) stay in English/Tahoma for structure if preferred, 
+   or let them convert to Preeti too. The rules above convert everything. */

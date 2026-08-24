@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Exam Builder</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.js"></script>
+</head>
+<body>
+
+<div class="workspace">
+    <!-- Toolbox for Teachers -->
+    <aside class="sidebar-toolbox no-print">
+        <div class="logo">📝 ExamBuilder</div>
+        <p class="tool-desc">Tap to add to your paper</p>
+        
+        <div class="button-grid">
+            <button class="tool-btn" onclick="addQuestion('mcq')"><span>🔘</span> Multiple Choice</button>
+            <button class="tool-btn" onclick="addQuestion('fib')"><span>〰️</span> Fill in Blanks</button>
+            <button class="tool-btn" onclick="addQuestion('tf')"><span>✅</span> True / False</button>
+            <button class="tool-btn" onclick="addQuestion('match')"><span>🔗</span> Match</button>
+            <button class="tool-btn" onclick="addQuestion('image')"><span>🖼️</span> Image Qn</button>
+            <button class="tool-btn" onclick="addQuestion('qa')"><span>✍️</span> Q & A</button>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div class="action-grid">
+            
+            <button class="action-btn print-btn" onclick="window.print()">🖨️ Print Exam</button>
+            <button class="action-btn clear-btn" onclick="clearWork()">🗑️ Start Fresh</button>
+            <button class="action-btn download-btn" onclick="downloadPDF()" style="background: #34a853; color: white;">📥 Download PDF</button>
+            <button class="action-btn docx-btn" onclick="downloadDOCX()" style="background: #185abc; color: white;">📄 Download Word</button>
+        </div>
+    </aside>
+
+    <!-- The "Smart Paper" Workspace -->
+    <main class="paper-wrapper">
+        <div class="a4-paper" id="paper-container">
+            
+            <!-- Professional Exam Header -->
+            <div class="exam-header">
+                <div class="school-header">
+                    <h2 class="editable-field" contenteditable="true">STEP BY STEP ENGLISH SECONDARY SCHOOL</h2>
+                    <br><p class="editable-field" contenteditable="true">First Terminal Examination - 2083</p>
+                </div>
+
+                <div class="exam-meta">
+                    <!-- Top Row: Class, Subject, F.M. -->
+                    <div class="meta-row">
+                        <div class="meta-left" style="font-weight: bold;">Class: <span class="editable-field fw-normal" contenteditable="true" style="font-weight: bold;">K.G.</span></div>
+                        <div class="meta-center">
+                            <span class="editable-field subject-name" contenteditable="true" style="border: none;">Science</span>
+                        </div>
+                        <div class="meta-right" style="font-weight: bold;">F.M.: <span class="editable-field fw-normal" contenteditable="true" style="font-weight: bold;">30</span></div>
+                    </div>
+                    
+                    <!-- Middle Row: Time -->
+                    <div class="meta-row" style="margin-bottom: 10px;">
+                        <div class="meta-left" style="font-weight: bold;">Time: <span class="editable-field fw-normal" contenteditable="true" style="font-weight: bold;">1 Hr.</span></div>
+                    </div>
+                </div>
+
+                <!-- Bottom Row: Student Details -->
+                <div class="student-details" style="margin-bottom: 20px;">
+                    <div class="student-field name-field" style="flex: 4;">
+                        Name: <span class="editable-field fill-blank" contenteditable="true"></span>
+                    </div>
+                    <div class="student-field roll-field" style="flex: 1.5;">
+                        Roll No: <span class="editable-field fill-blank" contenteditable="true"></span>
+                    </div>
+                    <div class="student-field sec-field" style="flex: 1.5;">
+                        Sec: <span class="editable-field fill-blank" contenteditable="true"></span>
+                    </div>
+                    <div class="student-field inv-field" style="flex: 1;">
+                        Inv: <span class="editable-field fill-blank" contenteditable="true"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Dynamic Questions Container -->
+            <div id="questions-container"></div>
+            
+        </div>
+    </main>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

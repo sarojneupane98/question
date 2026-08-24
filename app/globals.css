@@ -1,0 +1,554 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   Question Paper Generator — global stylesheet
+
+   Three separate concerns live in this file, in this order:
+
+     1. DASHBOARD CHROME  — the app UI. Themeable, light/dark.
+     2. THE PAPER         — everything inside `.paper-sheet`. ALWAYS white,
+                            always print metrics. The dashboard theme must
+                            never reach in here.
+     3. PRINT             — @page rules and the print-only visibility switch.
+
+   RULES THAT MUST NOT BE BROKEN
+   -----------------------------
+   • Blocks inside the paper use **padding**, never vertical margin. Adjacent
+     margins collapse, and a collapsed margin measures differently from how it
+     prints, which would desynchronise pagination from the rendered page.
+   • Zoom is applied with `transform: scale()` on a wrapper. Never resize the
+     sheet itself — its pixel height is the pagination yardstick.
+   • Colours here are hex or rgb only. html2canvas 1.4 cannot parse `oklch()`,
+     `lab()` or `color-mix()`, and silently renders those elements black.
+   ========================================================================== */
+
+@layer base {
+  * {
+    @apply border-ink-200 dark:border-ink-700;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-ink-50 text-ink-900 antialiased dark:bg-ink-950 dark:text-ink-100;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  /* Keyboard focus that is visible without being loud. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-white dark:ring-offset-ink-900;
+  }
+
+  ::selection {
+    @apply bg-brand-200 text-brand-950;
+  }
+
+  /* Slim scrollbars in the two long editor columns. */
+  .scroll-slim {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+  .scroll-slim::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .scroll-slim::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scroll-slim::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border: 3px solid transparent;
+    border-radius: 9999px;
+    background-clip: content-box;
+  }
+  .dark .scroll-slim {
+    scrollbar-color: #475569 transparent;
+  }
+  .dark .scroll-slim::-webkit-scrollbar-thumb {
+    background-color: #475569;
+  }
+
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+}
+
+/* ==========================================================================
+   2. THE PAPER
+   ========================================================================== */
+
+@layer components {
+  /**
+   * One A4 sheet. Width and height are fixed in millimetres; the browser
+   * resolves those against 96 CSS dpi, which is exactly the conversion
+   * `MM_TO_PX` performs in `lib/geometry.ts`. That equality is what makes
+   * measurement-based pagination land on the same page breaks the printer does.
+   */
+  .paper-sheet {
+    position: relative;
+    box-sizing: border-box;
+    width: 210mm;
+    height: 297mm;
+    /* Never themed. A question paper is white paper. */
+    background-color: #ffffff;
+    color: #000000;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .paper-content {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .paper-footer {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    font-size: 8.5pt;
+    color: #4b5563;
+    letter-spacing: 0.02em;
+  }
+
+  /* A hair of leading so descenders in the footer never clip. */
+  .paper-footer > span {
+    line-height: 1.2;
+  }
+
+  /* ---- block-level paper primitives ------------------------------------ */
+
+  /**
+   * Every measurable block. `padding-block` instead of `margin-block` is
+   * deliberate — see the header comment.
+   */
+  .pblock {
+    box-sizing: border-box;
+    position: relative;
+  }
+
+  .paper-divider {
+    border: 0;
+    border-top: 1px solid #000000;
+    margin: 0;
+  }
+
+  .paper-divider-soft {
+    border: 0;
+    border-top: 1px solid #9ca3af;
+    margin: 0;
+  }
+
+  /* Dotted leader used for "Name: ........." student fields. */
+  .paper-dots {
+    flex: 1 1 auto;
+    border-bottom: 1px dotted #6b7280;
+    transform: translateY(-0.28em);
+  }
+
+  /* A ruled answer line. */
+  .paper-rule {
+    border-bottom: 1px solid #9ca3af;
+    height: 0;
+  }
+
+  /* The marks column, right aligned, never overlapping the question text. */
+  .paper-marks {
+    flex: 0 0 auto;
+    padding-left: 4mm;
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Fixed-width question number gutter so all stems align on one edge. */
+  .paper-qnum {
+    flex: 0 0 auto;
+    text-align: left;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- rich text inside the paper -------------------------------------- */
+
+  /**
+   * Applies to HTML produced by Tiptap, injected with dangerouslySetInnerHTML.
+   * Tailwind's preflight strips list markers and table borders, so everything
+   * the editor can emit has to be restored explicitly. The tag list here must
+   * stay in step with `RICH_TEXT_TAGS` in `lib/types.ts`.
+   */
+  .rich-content > :first-child {
+    margin-top: 0;
+  }
+  .rich-content > :last-child {
+    margin-bottom: 0;
+  }
+
+  .rich-content p {
+    margin: 0;
+    min-height: 1em;
+  }
+
+  .rich-content p + p {
+    margin-top: 0.35em;
+  }
+
+  .rich-content strong,
+  .rich-content b {
+    font-weight: 700;
+  }
+
+  .rich-content em,
+  .rich-content i {
+    font-style: italic;
+  }
+
+  .rich-content u {
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+
+  .rich-content s {
+    text-decoration: line-through;
+  }
+
+  /*
+   * Superscripts and subscripts must not increase line height, or a formula
+   * like H₂O would make one printed line taller than its neighbours and throw
+   * the measured block height off.
+   */
+  .rich-content sup,
+  .rich-content sub {
+    font-size: 0.72em;
+    line-height: 0;
+    position: relative;
+    vertical-align: baseline;
+  }
+  .rich-content sup {
+    top: -0.45em;
+  }
+  .rich-content sub {
+    bottom: -0.22em;
+  }
+
+  .rich-content ul,
+  .rich-content ol {
+    margin: 0.25em 0 0.25em 0;
+    padding-left: 1.5em;
+  }
+
+  .rich-content ul {
+    list-style: disc outside;
+  }
+  .rich-content ul ul {
+    list-style: circle outside;
+  }
+  .rich-content ol {
+    list-style: decimal outside;
+  }
+  .rich-content ol ol {
+    list-style: lower-alpha outside;
+  }
+
+  .rich-content li {
+    margin: 0.1em 0;
+  }
+  /* Tiptap wraps list item text in <p>; don't let that add extra space. */
+  .rich-content li > p {
+    margin: 0;
+  }
+
+  .rich-content code {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.9em;
+    background-color: #f3f4f6;
+    padding: 0.05em 0.3em;
+    border-radius: 2px;
+  }
+
+  .rich-content pre {
+    margin: 0.35em 0;
+    padding: 2mm 2.5mm;
+    background-color: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 2px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.88em;
+    line-height: 1.35;
+  }
+
+  .rich-content pre code {
+    background: none;
+    padding: 0;
+    font-size: 1em;
+  }
+
+  .rich-content img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0.4em 0;
+  }
+
+  .rich-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0.4em 0;
+    table-layout: fixed;
+  }
+
+  .rich-content th,
+  .rich-content td {
+    border: 1px solid #000000;
+    padding: 1.1mm 1.6mm;
+    vertical-align: top;
+    text-align: left;
+    word-break: break-word;
+  }
+
+  .rich-content th {
+    font-weight: 700;
+    background-color: #f3f4f6;
+  }
+
+  .rich-content td > p,
+  .rich-content th > p {
+    margin: 0;
+  }
+
+  /* Tiptap's own table helpers, harmless in the preview. */
+  .rich-content .tableWrapper {
+    overflow: visible;
+  }
+
+  /* ---- editor surface -------------------------------------------------- */
+
+  /**
+   * Tiptap's editable area. It shares `.rich-content` so what the teacher types
+   * looks like what the paper prints, but it lives on the dashboard so it is
+   * allowed to be dark.
+   */
+  /**
+   * No `min-height` here on purpose. `RichTextEditor` puts a Tailwind
+   * `min-h-*` class directly on this element, and a two-class selector like
+   * this one would out-specify it — leaving every one-line MCQ option box as
+   * tall as a question stem.
+   */
+  .tiptap-surface .ProseMirror {
+    outline: none;
+  }
+
+  .tiptap-surface .ProseMirror p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+    @apply text-ink-400;
+  }
+
+  .tiptap-surface .ProseMirror table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  .tiptap-surface .ProseMirror th,
+  .tiptap-surface .ProseMirror td {
+    @apply border border-ink-300 dark:border-ink-600;
+    padding: 0.25rem 0.4rem;
+    position: relative;
+  }
+
+  .tiptap-surface .ProseMirror .selectedCell::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(99, 102, 241, 0.18);
+    pointer-events: none;
+  }
+
+  .tiptap-surface .ProseMirror img.ProseMirror-selectednode {
+    outline: 2px solid #6366f1;
+  }
+
+  .tiptap-surface .ProseMirror pre {
+    @apply bg-ink-100 dark:bg-ink-800;
+    padding: 0.5rem 0.65rem;
+    border-radius: 0.375rem;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.85em;
+    white-space: pre-wrap;
+  }
+
+  /* ---- drag and drop --------------------------------------------------- */
+
+  .dragging-card {
+    @apply opacity-40;
+  }
+
+  .drag-overlay-card {
+    @apply rotate-1 shadow-lift;
+  }
+
+  .drag-handle {
+    cursor: grab;
+    touch-action: none;
+  }
+  .drag-handle:active {
+    cursor: grabbing;
+  }
+}
+
+@layer utilities {
+  /* Hidden measuring rig: laid out at real width so heights are accurate, but
+     removed from view. `visibility: hidden` (not `display: none`) is essential —
+     a display:none element has no height to measure. */
+  .measure-rig {
+    position: absolute;
+    top: 0;
+    left: -10000px;
+    visibility: hidden;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Subtle grid used behind the landing hero. */
+  .hero-grid {
+    background-image:
+      linear-gradient(to right, rgba(99, 102, 241, 0.07) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(99, 102, 241, 0.07) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+}
+
+/* ==========================================================================
+   3. PRINT
+   ========================================================================== */
+
+@media print {
+  /* Zero page margin: our own sheet supplies the margins, so the printer must
+     not add its own or every page would be scaled down. */
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html,
+  body {
+    width: 210mm;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  /* Everything that is not the paper disappears. */
+  .no-print,
+  .no-print * {
+    display: none !important;
+  }
+
+  /* Every wrapper between <body> and .print-root carries this class. `display:
+     contents` deletes their boxes from the layout while keeping their children,
+     which is the only reliable way to get the sheets to the page origin — the
+     dashboard shell is a grid with a fixed sidebar column and a scroll container,
+     and any one of those left in place produces blank pages or a shifted sheet. */
+  .print-shell {
+    display: contents !important;
+  }
+
+  /* Neutralise the dashboard shell so the sheets sit at the page origin. */
+  .print-root {
+    position: static !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+  }
+
+  /* Cancel the on-screen zoom transform — printing is always 100%. */
+  .print-zoom-reset {
+    transform: none !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+  }
+
+  .paper-stack {
+    display: block !important;
+    gap: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .paper-sheet {
+    /* 296.6mm rather than 297mm: browsers round the page box up, and a sheet
+       that is even a fraction taller than the printable page emits a blank
+       trailing page. The footer is bottom-aligned, so losing 0.4mm is
+       invisible. */
+    height: 296.6mm !important;
+    width: 210mm !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    outline: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .paper-sheet + .paper-sheet {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  /* Force the browser to print our backgrounds (table header fills, code
+     blocks). Users still need "Background graphics" enabled in the dialog for
+     full fidelity; this is the part we can control. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .rich-content img {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(git --version)",
+      "Bash(which node *)",
+      "Bash(node -e \"const p=require\\('./node_modules/file-saver/package.json'\\); console.log\\(JSON.stringify\\({main:p.main,module:p.module,exports:p.exports},null,1\\)\\)\")"
+    ]
+  }
+}
