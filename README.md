@@ -23,10 +23,16 @@ npm run dev
 
 Then open <http://localhost:3000>.
 
-Other scripts:
+Other scripts. `build` writes a static site to `out/`; `preview` serves it so you can
+check the real build, and `preview:pages` serves it under `/question/` the way GitHub
+Pages does (see [Publishing](#publishing)):
 
 ```bash
-npm run build && npm start
+npm run build
+```
+
+```bash
+npm run preview
 ```
 
 ```bash
@@ -127,6 +133,43 @@ model is not CSS. Four deliberate compromises:
 Everything else — bold, italic, underline, superscript, subscript, bullet and numbered
 lists, tables, images, code blocks, section numbering, margins, fonts and sizes —
 carries across.
+
+---
+
+## Publishing
+
+Live at **<https://sarojneupane98.github.io/question/>**, rebuilt by
+`.github/workflows/deploy.yml` on every push to `main`.
+
+The app is entirely client-side — papers live in `localStorage`, and the PDF and Word
+files are generated in the browser — so `output: 'export'` in `next.config.mjs` produces a
+plain folder of HTML and JS that any static host can serve. There is no server to run.
+
+**One-time setup**, needed once per repository: **Settings → Pages → Build and deployment
+→ Source: GitHub Actions**. Until that is set, the deploy step has no Pages site to publish
+into and fails.
+
+### The base path
+
+A project page is served from a subfolder (`/question/`), so every link and asset URL has
+to carry that prefix. It comes from `NEXT_PUBLIC_BASE_PATH`, which the workflow derives
+from the repository name — rename the repo and the URLs follow, with nothing to edit.
+
+Two consequences worth knowing:
+
+- `trailingSlash: true` is required. Without it the export emits `editor.html`, and Pages
+  404s on `/editor/`. It also makes `usePathname()` return a trailing slash, which is why
+  `isNavActive()` in `components/layout/Sidebar.tsx` normalises before comparing.
+- To move to a custom domain instead (say `question.sarojneupane98.com.np`), add a `CNAME`
+  file containing the hostname and drop the `NEXT_PUBLIC_BASE_PATH` line from the workflow
+  — a domain root needs no prefix.
+
+Check a subpath build locally before pushing, since a wrong prefix is the likeliest way to
+break a deploy:
+
+```bash
+npm run build && npm run preview:pages
+```
 
 ---
 

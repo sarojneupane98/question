@@ -33,6 +33,24 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/settings', label: 'Settings', Icon: Settings },
 ]
 
+/**
+ * Is `href` the section the user is currently in?
+ *
+ * Two things to know. `trailingSlash: true` in `next.config.mjs` (needed for the
+ * static export to work on GitHub Pages) means `usePathname()` hands back
+ * `/dashboard/`, so a bare `===` would leave Dashboard permanently unhighlighted;
+ * the slash is normalised away first. And Dashboard is excluded from the prefix
+ * match because it is the only item with no sub-routes — prefix-matching it would
+ * be meaningless, and `/` must not light it up.
+ *
+ * Both the sidebar and the top bar need this answer, so it lives here once rather
+ * than as a copy in each.
+ */
+export function isNavActive(pathname: string, href: string): boolean {
+  const here = pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
+  return here === href || (href !== '/dashboard' && here.startsWith(href))
+}
+
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return 'T'
@@ -77,7 +95,7 @@ export function Sidebar({
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto scroll-slim px-3 py-2">
         {NAV_ITEMS.map(({ href, label, Icon, countKey }) => {
-          const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
+          const active = isNavActive(pathname, href)
           const count = countKey ? counts[countKey] : null
           return (
             <Link

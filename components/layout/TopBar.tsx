@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Menu, Plus, Redo2, Undo2 } from 'lucide-react'
 
-import { NAV_ITEMS } from './Sidebar'
+import { isNavActive, NAV_ITEMS } from './Sidebar'
 import { ThemeToggle } from './ThemeToggle'
 import { IconButton } from '@/components/ui/Button'
 import { relativeTime } from '@/lib/ids'
@@ -39,9 +39,7 @@ export function TopBar({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }) {
   const pastCount = useAppStore((state) => state.past.length)
   const futureCount = useAppStore((state) => state.future.length)
 
-  const active = NAV_ITEMS.find(
-    (item) => pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)),
-  )
+  const active = NAV_ITEMS.find((item) => isNavActive(pathname, item.href))
   const onEditor = pathname.startsWith('/editor')
 
   return (

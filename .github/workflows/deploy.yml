@@ -1,0 +1,78 @@
+# Builds the static export and publishes it to GitHub Pages.
+#
+# One-time setup in the repository: Settings -> Pages -> Build and deployment ->
+# Source: "GitHub Actions". Until that is set, the deploy job fails because there
+# is no Pages site to deploy into.
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Lets you re-publish from the Actions tab without pushing an empty commit —
+  # useful after changing the Pages settings.
+  workflow_dispatch:
+
+# `pages: write` and `id-token: write` are what deploy-pages needs to claim the
+# deployment; nothing here writes to the repository itself.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# A newer push should supersede a queued build, but a deploy that has already
+# started must be allowed to finish or the site can be left half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build static export
+        # The site is served from https://<user>.github.io/<repo>/, so every route
+        # and asset has to carry the repository name as a prefix. It is derived from
+        # $GITHUB_REPOSITORY ("owner/repo") rather than written literally, so
+        # renaming the repository cannot silently break every asset URL.
+        #
+        # $GITHUB_REPOSITORY is set for every event type, unlike
+        # github.event.repository.name.
+        run: |
+          export NEXT_PUBLIC_BASE_PATH="/${GITHUB_REPOSITORY#*/}"
+          echo "Building with basePath: $NEXT_PUBLIC_BASE_PATH"
+          npm run build
+
+      - name: Disable Jekyll
+        # The artifact route below does not run Jekyll, so this is belt-and-braces:
+        # it keeps Next's `_next/` directory from being swallowed if this repository
+        # is ever switched to branch-based Pages, where Jekyll ignores any path
+        # beginning with an underscore.
+        run: touch out/.nojekyll
+
+      - uses: actions/configure-pages@v5
+        # Deliberately no `static_site_generator: next` — that option writes its own
+        # Next config to inject a basePath, which would fight the one set above.
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

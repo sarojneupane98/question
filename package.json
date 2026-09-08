@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "preview": "node scripts/serve-out.mjs",
+    "preview:pages": "node scripts/serve-out.mjs --base /question",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },

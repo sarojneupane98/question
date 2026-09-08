@@ -15,3 +15,6 @@ yarn-error.log*
 .idea
 .vscode/*
 !.vscode/extensions.json
+
+# Machine-local tool permissions, not project configuration.
+.claude/settings.local.json
