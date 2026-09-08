@@ -1,8 +1,8 @@
 # Builds the static export and publishes it to GitHub Pages.
 #
-# One-time setup in the repository: Settings -> Pages -> Build and deployment ->
-# Source: "GitHub Actions". Until that is set, the deploy job fails because there
-# is no Pages site to deploy into.
+# No manual repository setup is needed: the "Configure Pages" step below switches
+# the Pages site on by itself. If that is not permitted, the run fails with the
+# manual fix spelled out in its summary.
 
 name: Deploy to GitHub Pages
 
@@ -40,17 +40,17 @@ jobs:
       - run: npm ci
 
       - name: Build static export
-        # The site is served from https://<user>.github.io/<repo>/, so every route
-        # and asset has to carry the repository name as a prefix. It is derived from
-        # $GITHUB_REPOSITORY ("owner/repo") rather than written literally, so
-        # renaming the repository cannot silently break every asset URL.
+        # The site is served from the root of a custom domain
+        # (question.sarojneupane98.com.np, pinned by public/CNAME), so no path prefix
+        # is wanted: NEXT_PUBLIC_BASE_PATH stays unset and every URL starts at "/".
         #
-        # $GITHUB_REPOSITORY is set for every event type, unlike
-        # github.event.repository.name.
-        run: |
-          export NEXT_PUBLIC_BASE_PATH="/${GITHUB_REPOSITORY#*/}"
-          echo "Building with basePath: $NEXT_PUBLIC_BASE_PATH"
-          npm run build
+        # Were this ever served from a project page instead
+        # (https://<user>.github.io/<repo>/), each route and asset would need the
+        # repository name as a prefix. Deleting public/CNAME and setting
+        #   NEXT_PUBLIC_BASE_PATH="/${GITHUB_REPOSITORY#*/}"
+        # here is the whole change — derived from $GITHUB_REPOSITORY rather than
+        # written out, so renaming the repository cannot break every asset URL.
+        run: npm run build
 
       - name: Disable Jekyll
         # The artifact route below does not run Jekyll, so this is belt-and-braces:

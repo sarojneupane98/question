@@ -17,8 +17,6 @@
       "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
       "runtimeArgs": [
         "scripts/serve-out.mjs",
-        "--base",
-        "/question",
         "--port",
         "3001"
       ],
