@@ -187,3 +187,4 @@ are never sent anywhere. Consequences worth knowing:
   or export a single paper from My Question Papers.
 - Storage is finite (a few MB). Large logos and pasted images are downscaled
   automatically, but a paper full of photographs can still fill it.
+  Tested
