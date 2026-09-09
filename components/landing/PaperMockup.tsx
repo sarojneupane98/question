@@ -23,12 +23,12 @@ export function PaperMockup() {
         {/* header */}
         <div className="text-center">
           <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-[10px] font-bold text-white">
-            SBS
+            LOGO
           </div>
           <p className="mt-2 text-[11px] font-bold uppercase tracking-wide text-ink-900">
-            Step by Step English Secondary School
+            Name of your School
           </p>
-          <p className="text-[8px] text-ink-500">Baneshwor, Kathmandu, Nepal</p>
+          <p className="text-[8px] text-ink-500">Your School Address</p>
           <p className="mt-1.5 text-[9px] font-semibold text-ink-800">
             First Terminal Examination — 2082
           </p>
