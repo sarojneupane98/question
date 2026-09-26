@@ -50,6 +50,113 @@ export interface PaginationResult {
 /** Ignore sub-pixel jitter; anything smaller cannot move a page break. */
 const HEIGHT_EPSILON = 0.5
 
+/**
+ * Where to break a block that is taller than a page, measured from the rig.
+ *
+ * A window is a fixed page-tall clip, so the only thing this can choose is where
+ * each window *starts*. Stepping by exactly the page height would put the clip
+ * through the middle of a line, slicing the last line of one page and the first
+ * of the next. Instead each window starts at the top of the first line that did
+ * not fit in the previous one, so every break lands in the gap between two lines.
+ *
+ * Line boxes come from `Range.getClientRects()`, which returns one rect per
+ * rendered line — the only way to learn where the browser actually wrapped.
+ * Images and tables contribute their own rectangles, since they have no text to
+ * measure and a single tall image is exactly the case a break must not slice.
+ *
+ * Returns null when the block yields no measurable rectangles at all, so the
+ * caller can fall back to even page-sized steps.
+ */
+function measureSliceOffsets(element: HTMLElement, contentHeightPx: number): number[] | null {
+  if (contentHeightPx <= 0) return null
+
+  const elementRect = element.getBoundingClientRect()
+  const elementTop = elementRect.top
+  const total = elementRect.height
+
+  /** Rendered lines, as offsets from the block's top. */
+  const lines: Array<{ top: number; bottom: number }> = []
+
+  const push = (top: number, bottom: number) => {
+    if (bottom - top > 1) lines.push({ top: top - elementTop, bottom: bottom - elementTop })
+  }
+
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT)
+  let node: Node | null = walker.currentNode
+  while (node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (node.nodeValue && node.nodeValue.trim()) {
+        const range = document.createRange()
+        range.selectNodeContents(node)
+        Array.from(range.getClientRects()).forEach((rect) => push(rect.top, rect.bottom))
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as HTMLElement
+      if (el.tagName === 'IMG' || el.tagName === 'TABLE' || el.tagName === 'HR') {
+        const rect = el.getBoundingClientRect()
+        push(rect.top, rect.bottom)
+      }
+    }
+    node = walker.nextNode()
+  }
+
+  if (lines.length === 0) return null
+
+  /*
+   * Inline children put several rects on the same visual line (`<strong>` inside
+   * a paragraph, for instance), so merge by rounded top and keep the lowest
+   * bottom. Sorting by top then gives lines in reading order.
+   */
+  const merged = new Map<number, number>()
+  lines.forEach(({ top, bottom }) => {
+    const key = Math.round(top)
+    merged.set(key, Math.max(merged.get(key) ?? 0, bottom))
+  })
+  const ordered = [...merged.entries()]
+    .map(([top, bottom]) => ({ top, bottom }))
+    .sort((a, b) => a.top - b.top)
+
+  const offsets: number[] = [0]
+  let start = 0
+
+  // Bounded so a pathological measurement can never spin forever.
+  for (let guard = 0; guard < 500; guard += 1) {
+    if (start + contentHeightPx >= total - 1) break
+
+    const limit = start + contentHeightPx
+
+    // The last line that is completely inside this window.
+    let lastFitting = -1
+    ordered.forEach((line, i) => {
+      if (line.bottom <= limit + 0.5) lastFitting = i
+    })
+
+    let next: number
+    if (lastFitting < 0) {
+      /*
+       * Not one line fits in this window — a single image or table taller than a
+       * whole page. There is nothing to snap to, and snapping to the top of that
+       * oversized line would advance by its leading padding alone: a window nine
+       * pixels tall, printed as a sheet with a sliver of white on it. So step a
+       * full page and let the break fall where it must. An image taller than the
+       * paper has to be cut somewhere.
+       */
+      next = start + contentHeightPx
+    } else {
+      const following = ordered[lastFitting + 1]
+      next = following ? following.top : start + contentHeightPx
+    }
+
+    // Overlapping line boxes could otherwise stall the walk on one offset.
+    if (next <= start + 1) next = start + contentHeightPx
+
+    offsets.push(next)
+    start = next
+  }
+
+  return offsets
+}
+
 export function usePagination(paper: Paper): PaginationResult {
   const blocks = useMemo(() => flattenPaper(paper), [paper])
   const geometry = useMemo(() => getPageGeometry(paper.layout), [paper.layout])
@@ -64,20 +171,51 @@ export function usePagination(paper: Paper): PaginationResult {
 
   const rigRef = useRef<HTMLDivElement>(null)
   const heightsRef = useRef<Map<string, number>>(new Map())
+  const slicesRef = useRef<Map<string, number[]>>(new Map())
+  /*
+   * `measure` must keep a stable identity — it is a dependency of the effect
+   * that installs the ResizeObserver, and a new identity would tear the observer
+   * down and rebuild it on every render. It therefore reads the current geometry
+   * through a ref rather than closing over it.
+   */
+  const contentHeightRef = useRef(geometry.contentHeightPx)
+  contentHeightRef.current = geometry.contentHeightPx
   const [heights, setHeights] = useState<Map<string, number>>(heightsRef.current)
+  const [slices, setSlices] = useState<Map<string, number[]>>(slicesRef.current)
   const [measured, setMeasured] = useState(false)
 
   const measure = useCallback(() => {
     const rig = rigRef.current
     if (!rig) return
 
+    /*
+     * A rig with no width means the preview is not laid out — the editor hides
+     * the preview column below `lg`, and a hidden column gives every block a
+     * height of zero. Measuring then would say a fifty-mark paper fits on one
+     * page, and that wrong page count is what the export bar reports to the
+     * teacher. Better to keep the last honest measurement and wait: the
+     * ResizeObserver fires again the moment the column is shown.
+     */
+    if (rig.clientWidth === 0) return
+
+    const contentHeightPx = contentHeightRef.current
+
     const next = new Map<string, number>()
+    const nextSlices = new Map<string, number[]>()
     rig.querySelectorAll<HTMLElement>('[data-block-id]').forEach((node) => {
       const id = node.dataset.blockId
       if (!id) return
       // getBoundingClientRect includes fractional pixels; offsetHeight rounds and
       // would accumulate several millimetres of error over a full page.
-      next.set(id, node.getBoundingClientRect().height)
+      const height = node.getBoundingClientRect().height
+      next.set(id, height)
+
+      // Only blocks that cannot fit on a page need slice offsets, and computing
+      // line rects for every block would be wasted work on a long paper.
+      if (height > contentHeightPx + HEIGHT_EPSILON) {
+        const offsets = measureSliceOffsets(node, contentHeightPx)
+        if (offsets && offsets.length > 1) nextSlices.set(id, offsets)
+      }
     })
 
     const prev = heightsRef.current
@@ -92,6 +230,8 @@ export function usePagination(paper: Paper): PaginationResult {
     if (changed) {
       heightsRef.current = next
       setHeights(next)
+      slicesRef.current = nextSlices
+      setSlices(nextSlices)
     }
     setMeasured(true)
   }, [])
@@ -154,8 +294,14 @@ export function usePagination(paper: Paper): PaginationResult {
   }, [measure, blocks, options, geometry.contentWidthPx])
 
   const pages = useMemo(
-    () => paginateBlocks(blocks, (id) => heights.get(id) ?? 0, geometry.contentHeightPx),
-    [blocks, heights, geometry.contentHeightPx],
+    () =>
+      paginateBlocks(
+        blocks,
+        (id) => heights.get(id) ?? 0,
+        geometry.contentHeightPx,
+        (id) => slices.get(id) ?? null,
+      ),
+    [blocks, heights, slices, geometry.contentHeightPx],
   )
 
   return { blocks, pages, options, geometry, measured, rigRef, remeasure: measure }

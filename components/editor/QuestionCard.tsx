@@ -1,22 +1,17 @@
 'use client'
 
-import { useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { BookmarkPlus, ChevronDown, Copy, GripVertical, Trash2 } from 'lucide-react'
+import { ChevronDown, Copy, GripVertical, Pencil, Trash2 } from 'lucide-react'
 
 import { QuestionEditor } from './QuestionEditor'
 import { IconButton, Button } from '@/components/ui/Button'
-import { Modal } from '@/components/ui/Modal'
-import { Field, Input, Select } from '@/components/ui/Primitives'
 import { QuestionTypeBadge } from '@/components/ui/QuestionTypeIcon'
 import { cn } from '@/lib/cn'
-import { DIFFICULTY_OPTIONS } from '@/lib/defaults'
 import { isHtmlEmpty, richTextExcerpt } from '@/lib/html'
 import { marksWord } from '@/lib/marks'
-import { useAppStore, useCurrentPaper } from '@/lib/store'
-import { toast } from '@/lib/toast'
-import type { Difficulty, Question } from '@/lib/types'
+import { useAppStore } from '@/lib/store'
+import type { Question } from '@/lib/types'
 
 /**
  * One question in the editor list (spec §3).
@@ -25,90 +20,17 @@ import type { Difficulty, Question } from '@/lib/types'
  * tidiness: an expanded card mounts a Tiptap instance per rich-text field, and a
  * 40-question paper with every card open would mount well over a hundred
  * editors. Collapsed cards render a plain-text excerpt instead.
+ *
+ * The row carries three actions and no more — Edit, Duplicate, Delete. Anything
+ * rarer (answer lines, chapter, difficulty, filing a copy in the question bank)
+ * lives under "More options" inside the expanded body, next to the question it
+ * belongs to. A row of five icons on every one of forty questions is not a
+ * feature list, it is noise.
+ *
+ * "Edit" is spelled out rather than left to the chevron. Clicking a row to open
+ * it is obvious once you have seen it work and invisible until then, and the
+ * teachers this is for should not have to discover it.
  */
-
-/* -------------------------------------------------------------------------- */
-/*  Save-to-bank dialog                                                       */
-/* -------------------------------------------------------------------------- */
-
-function AddToBankDialog({
-  question,
-  open,
-  onClose,
-}: {
-  question: Question
-  open: boolean
-  onClose: () => void
-}) {
-  const paper = useCurrentPaper()
-  const addToBank = useAppStore((s) => s.addToBank)
-  const updateQuestion = useAppStore((s) => s.updateQuestion)
-
-  const [subject, setSubject] = useState(paper?.exam.subject ?? '')
-  const [className, setClassName] = useState(paper?.exam.className ?? '')
-  const [chapter, setChapter] = useState(question.meta.chapter)
-  const [difficulty, setDifficulty] = useState<Difficulty>(question.meta.difficulty)
-
-  const save = () => {
-    addToBank(question, { subject, className, chapter, difficulty })
-    // Keep the question in the paper in step with what was filed, so the same
-    // question is not re-tagged from scratch next time.
-    if (chapter !== question.meta.chapter || difficulty !== question.meta.difficulty) {
-      updateQuestion(question.id, { meta: { ...question.meta, chapter, difficulty } })
-    }
-    onClose()
-    toast.success('Saved to question bank', 'Find it under Question Bank, filtered by these details.')
-  }
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Save to question bank"
-      description="A copy is filed away. Editing the question in this paper will not change the copy."
-      size="md"
-      footer={
-        <>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={save}>
-            <BookmarkPlus className="h-4 w-4" />
-            Save copy
-          </Button>
-        </>
-      }
-    >
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Subject">
-          <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Science" />
-        </Field>
-        <Field label="Class / Grade">
-          <Input value={className} onChange={(e) => setClassName(e.target.value)} placeholder="Grade 10" />
-        </Field>
-        <Field label="Chapter">
-          <Input
-            value={chapter}
-            onChange={(e) => setChapter(e.target.value)}
-            placeholder="Force and Motion"
-          />
-        </Field>
-        <Field label="Difficulty">
-          <Select
-            value={difficulty}
-            onChange={(e) => setDifficulty(e.target.value as Difficulty)}
-            options={DIFFICULTY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-          />
-        </Field>
-      </div>
-    </Modal>
-  )
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Card                                                                      */
-/* -------------------------------------------------------------------------- */
-
 export function QuestionCard({
   question,
   label,
@@ -123,7 +45,6 @@ export function QuestionCard({
   const activeQuestionId = useAppStore((s) => s.activeQuestionId)
   const setActiveQuestion = useAppStore((s) => s.setActiveQuestion)
   const duplicateQuestion = useAppStore((s) => s.duplicateQuestion)
-  const [bankOpen, setBankOpen] = useState(false)
 
   const expanded = activeQuestionId === question.id
 
@@ -132,6 +53,8 @@ export function QuestionCard({
 
   const empty = isHtmlEmpty(question.html)
   const excerpt = empty ? 'Empty question' : richTextExcerpt(question.html, 150)
+
+  const toggle = () => setActiveQuestion(expanded ? null : question.id)
 
   return (
     <div
@@ -161,7 +84,7 @@ export function QuestionCard({
 
         <button
           type="button"
-          onClick={() => setActiveQuestion(expanded ? null : question.id)}
+          onClick={toggle}
           aria-expanded={expanded}
           className="min-w-0 flex-1 rounded-lg px-1 py-1 text-left"
         >
@@ -169,9 +92,6 @@ export function QuestionCard({
             <span className="text-xs font-bold tabular-nums text-ink-500 dark:text-ink-400">{label}</span>
             <QuestionTypeBadge type={question.type} />
             <span className="text-[11px] font-medium text-ink-400">{marksWord(question.marks)}</span>
-            {question.meta.chapter ? (
-              <span className="truncate text-[11px] text-ink-400">· {question.meta.chapter}</span>
-            ) : null}
             <ChevronDown
               className={cn(
                 'ml-auto h-3.5 w-3.5 flex-none text-ink-400 transition-transform',
@@ -193,14 +113,15 @@ export function QuestionCard({
           )}
         </button>
 
-        <div className="flex flex-none items-center">
-          <IconButton label="Save to question bank" onClick={() => setBankOpen(true)}>
-            <BookmarkPlus className="h-3.5 w-3.5" />
-          </IconButton>
-          <IconButton label="Duplicate question" onClick={() => duplicateQuestion(question.id)}>
+        <div className="flex flex-none items-center gap-0.5">
+          <Button size="xs" variant={expanded ? 'subtle' : 'ghost'} onClick={toggle}>
+            <Pencil className="h-3.5 w-3.5" />
+            {expanded ? 'Close' : 'Edit'}
+          </Button>
+          <IconButton label={`Duplicate question ${label}`} onClick={() => duplicateQuestion(question.id)}>
             <Copy className="h-3.5 w-3.5" />
           </IconButton>
-          <IconButton label="Delete question" onClick={() => onRequestDelete(question)}>
+          <IconButton label={`Delete question ${label}`} onClick={() => onRequestDelete(question)}>
             <Trash2 className="h-3.5 w-3.5" />
           </IconButton>
         </div>
@@ -210,10 +131,6 @@ export function QuestionCard({
         <div className="border-t border-ink-200 px-3 py-3 dark:border-ink-700">
           <QuestionEditor question={question} />
         </div>
-      ) : null}
-
-      {bankOpen ? (
-        <AddToBankDialog question={question} open={bankOpen} onClose={() => setBankOpen(false)} />
       ) : null}
     </div>
   )

@@ -4,7 +4,7 @@ import { useId, useRef, useState } from 'react'
 import { Building2, GraduationCap, ImagePlus, Trash2, Upload } from 'lucide-react'
 
 import { Button, IconButton } from '@/components/ui/Button'
-import { Card, CardBody, CardHeader, Field, Input, NumberInput, Textarea } from '@/components/ui/Primitives'
+import { CollapsibleCard, Field, Input, NumberInput, Textarea } from '@/components/ui/Primitives'
 import { cn } from '@/lib/cn'
 import { ACCEPTED_IMAGE_TYPES, LOGO_LIMITS, prepareImageFile } from '@/lib/imageUtils'
 import { useAppStore, useCurrentPaper } from '@/lib/store'
@@ -16,6 +16,10 @@ import { toast } from '@/lib/toast'
  * Both cards write to the store on every keystroke. There is no Save button
  * because there is nothing to save: the persist middleware writes the paper to
  * localStorage, so a closed tab loses nothing.
+ *
+ * Both fold themselves away once they have been filled in. A teacher writes the
+ * school address once a year and the questions every week, so the address should
+ * not be the first thing on the page every time.
  */
 
 /* -------------------------------------------------------------------------- */
@@ -107,8 +111,14 @@ export function LogoPicker({
       // Downscaled to at most 400 px before it is stored: a 4 MB crest would eat
       // the whole localStorage quota and make every export slower.
       onPicked(await prepareImageFile(file, LOGO_LIMITS))
-    } catch {
-      toast.error('That logo could not be used', 'Try a PNG, JPEG, WebP or SVG file.')
+    } catch (error) {
+      // `prepareImageFile` rejects with a sentence written for the teacher —
+      // show that rather than a generic line, so they know which rule the file
+      // broke and what to do about it.
+      toast.error(
+        'That logo could not be used',
+        error instanceof Error ? error.message : 'Try a PNG, JPEG or WebP file.',
+      )
     } finally {
       setBusy(false)
       if (inputRef.current) inputRef.current.value = ''
@@ -179,24 +189,33 @@ export function LogoPicker({
 /*  Cards                                                                      */
 /* -------------------------------------------------------------------------- */
 
-export function SchoolInfoCard() {
+function SchoolInfoCard() {
   const paper = useCurrentPaper()
   const updateSchool = useAppStore((s) => s.updateSchool)
   const updateLayout = useAppStore((s) => s.updateLayout)
   const applySchoolPreset = useAppStore((s) => s.applySchoolPreset)
   const saveSchoolPreset = useAppStore((s) => s.saveSchoolPreset)
 
+  // Open when there is something to fill in, folded away once it is filled.
+  // Most teachers set their school once and never touch it again, so leaving it
+  // permanently open costs every one of them a screenful.
+  const [open, setOpen] = useState(() => !paper?.school.name.trim())
+
   if (!paper) return null
   const { school } = paper
   const logoHidden = Boolean(school.logoDataUrl) && !paper.layout.showLogo
 
   return (
-    <Card>
-      <CardHeader
-        title="School information"
-        description="Printed at the top of every page of the paper."
-        icon={<Building2 className="h-4 w-4" />}
-        actions={
+    <CollapsibleCard
+      open={open}
+      onOpenChange={setOpen}
+      title="School information"
+      description="Printed at the top of every page of the paper."
+      summary={school.name.trim() || 'No school name yet'}
+      icon={<Building2 className="h-4 w-4" />}
+      bodyClassName="space-y-3"
+      actions={
+        open ? (
           <>
             <Button
               size="xs"
@@ -220,67 +239,68 @@ export function SchoolInfoCard() {
               Save as default
             </Button>
           </>
-        }
+        ) : null
+      }
+    >
+      <LogoPicker
+        logoDataUrl={school.logoDataUrl}
+        onPicked={(logoDataUrl) => updateSchool({ logoDataUrl })}
+        onCleared={() => updateSchool({ logoDataUrl: null })}
       />
-      <CardBody className="space-y-3">
-        <LogoPicker
-          logoDataUrl={school.logoDataUrl}
-          onPicked={(logoDataUrl) => updateSchool({ logoDataUrl })}
-          onCleared={() => updateSchool({ logoDataUrl: null })}
-        />
 
-        {logoHidden ? (
-          <p className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:bg-amber-950/60 dark:text-amber-200">
-            The logo is switched off in the layout panel, so it will not print.
-            <button
-              type="button"
-              onClick={() => updateLayout({ showLogo: true })}
-              className="font-semibold underline decoration-dotted underline-offset-2"
-            >
-              Show it
-            </button>
-          </p>
-        ) : null}
+      {logoHidden ? (
+        <p className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:bg-amber-950/60 dark:text-amber-200">
+          The logo is switched off in the layout panel, so it will not print.
+          <button
+            type="button"
+            onClick={() => updateLayout({ showLogo: true })}
+            className="font-semibold underline decoration-dotted underline-offset-2"
+          >
+            Show it
+          </button>
+        </p>
+      ) : null}
 
-        <TextField
-          label="School name"
-          required
-          value={school.name}
-          onChange={(name) => updateSchool({ name })}
-          placeholder="Everest Model Secondary School"
-        />
-        <TextField
-          label="Affiliation or motto"
-          value={school.affiliation}
-          onChange={(affiliation) => updateSchool({ affiliation })}
-          placeholder="Affiliated to NEB"
-          hint="Printed small, directly under the school name."
-        />
+      <TextField
+        label="School name"
+        required
+        value={school.name}
+        onChange={(name) => updateSchool({ name })}
+        placeholder="Everest Model Secondary School"
+      />
+      <TextField
+        label="Affiliation or motto"
+        value={school.affiliation}
+        onChange={(affiliation) => updateSchool({ affiliation })}
+        placeholder="Affiliated to NEB"
+        hint="Printed small, directly under the school name."
+      />
 
-        <Field label="Address">
-          <Textarea
-            rows={2}
-            value={school.address}
-            onChange={(event) => updateSchool({ address: event.target.value })}
-            placeholder="Baneshwor, Kathmandu, Nepal"
-          />
-        </Field>
-
-        <TextField
-          label="Contact"
-          value={school.contact}
-          onChange={(contact) => updateSchool({ contact })}
-          placeholder="Tel: 01-4567890  |  info@school.edu.np"
+      <Field label="Address">
+        <Textarea
+          rows={2}
+          value={school.address}
+          onChange={(event) => updateSchool({ address: event.target.value })}
+          placeholder="Baneshwor, Kathmandu, Nepal"
         />
-      </CardBody>
-    </Card>
+      </Field>
+
+      <TextField
+        label="Contact"
+        value={school.contact}
+        onChange={(contact) => updateSchool({ contact })}
+        placeholder="Tel: 01-4567890  |  info@school.edu.np"
+      />
+    </CollapsibleCard>
   )
 }
 
-export function ExamDetailsCard() {
+function ExamDetailsCard() {
   const paper = useCurrentPaper()
   const updateExam = useAppStore((s) => s.updateExam)
   const updatePaper = useAppStore((s) => s.updatePaper)
+
+  const [open, setOpen] = useState(() => !paper?.exam.subject.trim())
 
   if (!paper) return null
   const { exam } = paper
@@ -289,89 +309,94 @@ export function ExamDetailsCard() {
   // does not relate to this paper's total.
   const passTooHigh = exam.passMarks > exam.fullMarks && exam.fullMarks > 0
 
-  return (
-    <Card>
-      <CardHeader
-        title="Examination details"
-        description="The heading block, marks and timing."
-        icon={<GraduationCap className="h-4 w-4" />}
-      />
-      <CardBody className="space-y-3">
-        <TextField
-          label="Paper name"
-          value={paper.name}
-          onChange={(name) => updatePaper({ name })}
-          placeholder="Class 10 Science — First Terminal"
-          hint="Used in My Question Papers. Not printed on the paper."
-        />
+  const summary =
+    [exam.className, exam.subject, exam.title].filter((part) => part.trim()).join(' · ') ||
+    'No exam details yet'
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <TextField
-            label="Examination title"
-            className="sm:col-span-2"
-            value={exam.title}
-            onChange={(title) => updateExam({ title })}
-            placeholder="First Terminal Examination"
-          />
-          <TextField
-            label="Academic year"
-            value={exam.academicYear}
-            onChange={(academicYear) => updateExam({ academicYear })}
-            placeholder="2081 (2024/25)"
-          />
-          <TextField
-            label="Class / Grade"
-            value={exam.className}
-            onChange={(className) => updateExam({ className })}
-            placeholder="Grade 10"
-          />
-          <TextField
-            label="Subject"
-            value={exam.subject}
-            onChange={(subject) => updateExam({ subject })}
-            placeholder="Science"
-          />
-          <TextField
-            label="Subject code"
-            value={exam.subjectCode}
-            onChange={(subjectCode) => updateExam({ subjectCode })}
-            placeholder="SCI-101"
-          />
-          <NumField
-            label="Full marks"
-            value={exam.fullMarks}
-            onChange={(fullMarks) => updateExam({ fullMarks })}
-            hint="The marks meter counts against this."
-          />
-          <NumField
-            label="Pass marks"
-            value={exam.passMarks}
-            onChange={(passMarks) => updateExam({ passMarks })}
-            error={passTooHigh ? 'Higher than full marks.' : undefined}
-          />
-          <TextField
-            label="Time allowed"
-            value={exam.timeAllowed}
-            onChange={(timeAllowed) => updateExam({ timeAllowed })}
-            placeholder="2 hrs 15 mins"
-          />
-          <TextField
-            label="Exam date"
-            value={exam.examDate}
-            onChange={(examDate) => updateExam({ examDate })}
-            placeholder="2081-04-15 (30 July 2024)"
-          />
-          <TextField
-            label="Set"
-            className="sm:col-span-2"
-            value={exam.set}
-            onChange={(set) => updateExam({ set })}
-            placeholder="Set A"
-            hint="Leave empty to hide it from the header."
-          />
-        </div>
-      </CardBody>
-    </Card>
+  return (
+    <CollapsibleCard
+      open={open}
+      onOpenChange={setOpen}
+      title="Examination details"
+      description="The heading block, marks and timing."
+      summary={`${summary} · ${exam.fullMarks} full marks`}
+      icon={<GraduationCap className="h-4 w-4" />}
+      bodyClassName="space-y-3"
+    >
+      <TextField
+        label="Paper name"
+        value={paper.name}
+        onChange={(name) => updatePaper({ name })}
+        placeholder="Class 10 Science — First Terminal"
+        hint="Used in My Question Papers. Not printed on the paper."
+      />
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TextField
+          label="Examination title"
+          className="sm:col-span-2"
+          value={exam.title}
+          onChange={(title) => updateExam({ title })}
+          placeholder="First Terminal Examination"
+        />
+        <TextField
+          label="Academic year"
+          value={exam.academicYear}
+          onChange={(academicYear) => updateExam({ academicYear })}
+          placeholder="2081 (2024/25)"
+        />
+        <TextField
+          label="Class / Grade"
+          value={exam.className}
+          onChange={(className) => updateExam({ className })}
+          placeholder="Grade 10"
+        />
+        <TextField
+          label="Subject"
+          value={exam.subject}
+          onChange={(subject) => updateExam({ subject })}
+          placeholder="Science"
+        />
+        <TextField
+          label="Subject code"
+          value={exam.subjectCode}
+          onChange={(subjectCode) => updateExam({ subjectCode })}
+          placeholder="SCI-101"
+        />
+        <NumField
+          label="Full marks"
+          value={exam.fullMarks}
+          onChange={(fullMarks) => updateExam({ fullMarks })}
+          hint="The marks meter counts against this."
+        />
+        <NumField
+          label="Pass marks"
+          value={exam.passMarks}
+          onChange={(passMarks) => updateExam({ passMarks })}
+          error={passTooHigh ? 'Higher than full marks.' : undefined}
+        />
+        <TextField
+          label="Time allowed"
+          value={exam.timeAllowed}
+          onChange={(timeAllowed) => updateExam({ timeAllowed })}
+          placeholder="2 hrs 15 mins"
+        />
+        <TextField
+          label="Exam date"
+          value={exam.examDate}
+          onChange={(examDate) => updateExam({ examDate })}
+          placeholder="2081-04-15 (30 July 2024)"
+        />
+        <TextField
+          label="Set"
+          className="sm:col-span-2"
+          value={exam.set}
+          onChange={(set) => updateExam({ set })}
+          placeholder="Set A"
+          hint="Leave empty to hide it from the header."
+        />
+      </div>
+    </CollapsibleCard>
   )
 }
 

@@ -246,6 +246,15 @@ export interface Paper {
   instructions: Instruction[]
   sections: Section[]
   layout: PaperLayout
+  /**
+   * True only for the paper created by "See an example paper".
+   *
+   * Optional so that papers saved before this field existed keep loading
+   * unchanged — absent means "a real paper", which is the right default. It
+   * exists so the app can label demo content as demo content instead of leaving
+   * a teacher unsure which papers are theirs.
+   */
+  isExample?: boolean
 }
 
 /* -------------------------------------------------------------------------- */
@@ -286,8 +295,6 @@ export interface TemplateDefinition {
   tag: string
   /** Tailwind gradient classes for the card header. */
   accent: string
-  /** Bullet points shown on the template card. */
-  highlights: string[]
   /**
    * Builds a brand-new paper. MUST call `uid()` for every id so two papers
    * created from the same template never collide.
@@ -476,10 +483,36 @@ export type PaperBlock =
   | EndNoteBlock
   | SpacerBlock
 
+/**
+ * Marks a page as one window onto a block too tall to fit on any single page —
+ * a long comprehension passage, an oversized pasted image.
+ *
+ * Such a block cannot be made to fit by moving it, so it is repeated on every
+ * page it spans and each page shifts it up by `offsetPx`, letting the content
+ * box's clipping reveal just that window. The alternative the app used to have
+ * was to clip the block once and lose everything past the first page.
+ */
+export interface BlockSlice {
+  blockId: string
+  /** How far up to shift the block on this page, in CSS pixels. */
+  offsetPx: number
+  /**
+   * How much of the block this page reveals, in CSS pixels.
+   *
+   * Needed because the break falls between two lines, not at the foot of the
+   * content box. Clipping at the box instead would leave the top few pixels of
+   * the following line showing — a row of shaved-off letters that reads as a
+   * rendering fault.
+   */
+  lengthPx: number
+}
+
 /** One rendered A4 sheet. */
 export interface PaginatedPage {
   index: number
   blocks: PaperBlock[]
+  /** Present only when this page is one window of an over-tall block. */
+  slice?: BlockSlice
 }
 
 /* -------------------------------------------------------------------------- */

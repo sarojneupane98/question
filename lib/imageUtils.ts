@@ -8,6 +8,8 @@
  * inside the browser storage quota and keeps html2canvas fast.
  */
 
+import { IMAGE_UPLOAD, checkUpload } from './upload'
+
 export interface ImageLimits {
   maxWidth: number
   maxHeight: number
@@ -31,7 +33,15 @@ export const QUESTION_IMAGE_LIMITS: ImageLimits = {
   preservePng: false,
 }
 
-export const ACCEPTED_IMAGE_TYPES = 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml'
+/**
+ * What the file pickers advertise.
+ *
+ * SVG is deliberately absent. It is a document format rather than a picture —
+ * it can carry scripts and remote references — and neither the PDF rasteriser
+ * nor the DOCX writer produces anything usable from one, so accepting it only
+ * ever ended in a broken image in the exported paper.
+ */
+export const ACCEPTED_IMAGE_TYPES = IMAGE_UPLOAD.extensions.join(',')
 
 export function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -96,6 +106,8 @@ export async function downscaleDataUrl(dataUrl: string, limits: ImageLimits): Pr
 }
 
 export async function prepareImageFile(file: File, limits: ImageLimits): Promise<string> {
+  const problem = checkUpload(file, IMAGE_UPLOAD)
+  if (problem) throw new Error(problem)
   const raw = await readFileAsDataUrl(file)
   return downscaleDataUrl(raw, limits)
 }

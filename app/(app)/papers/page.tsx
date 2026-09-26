@@ -232,16 +232,16 @@ export default function PapersPage() {
         <EmptyState
           icon={<FileStack className="h-5 w-5" />}
           title="No question papers yet"
-          description="Start from a template and the sections, question types and marks are laid out for you."
+          description="Every paper you make is saved here, in this browser, and stays on this computer."
           action={
             <div className="flex flex-wrap justify-center gap-2">
-              <Button onClick={() => createPaper('school-exam')}>
+              <Button onClick={() => createPaper(null)}>
                 <Plus className="h-4 w-4" />
-                {TEMPLATES[0]?.name ?? 'New paper'}
+                Create question paper
               </Button>
               <Button variant="outline" onClick={() => fileRef.current?.click()}>
                 <FileUp className="h-4 w-4" />
-                Import a file
+                Open a backup file
               </Button>
             </div>
           }
@@ -321,10 +321,10 @@ function PaperCard({
     setSaving(true)
     try {
       const name = await exportPaperJson(paper)
-      toast.success('Saved as a file', name)
+      toast.success('Backup saved', name)
     } catch (error) {
       toast.error(
-        'Could not save the file',
+        'Could not save the backup',
         error instanceof Error ? error.message : 'Try again in a moment.',
       )
     } finally {
@@ -367,7 +367,7 @@ function PaperCard({
             <Copy className="h-3.5 w-3.5" />
           </IconButton>
           <IconButton
-            label="Save as a file (.json)"
+            label="Back up this paper to a file"
             size="xs"
             disabled={saving}
             onClick={() => void saveFile()}

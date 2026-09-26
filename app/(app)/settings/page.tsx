@@ -133,13 +133,13 @@ export default function SettingsPage() {
 
   const askReset = () =>
     confirm({
-      title: 'Start over with the sample papers?',
+      title: 'Delete everything in this browser?',
       message:
-        'Every paper, bank question and preference in this browser is discarded, and the three sample papers and sample bank are put back. A backup file you have already downloaded is not affected.',
-      confirmLabel: 'Reset everything',
+        'Every question paper, every bank question and every preference stored in this browser is deleted. Nothing is put back in their place — you will be left with an empty app. A backup file you have already downloaded is not affected, and this cannot be undone.',
+      confirmLabel: 'Delete everything',
       onConfirm: () => {
         resetEverything()
-        toast.info('Reset done', 'The sample papers are back.')
+        toast.info('Everything deleted', 'This browser now has no papers in it.')
       },
     })
 
@@ -285,14 +285,14 @@ export default function SettingsPage() {
           <Field label="School name">
             <Input
               value={preset.name}
-              placeholder="Step by Step English Secondary School"
+              placeholder="Everest Model Secondary School"
               onChange={(event) => patchPreset({ name: event.target.value })}
             />
           </Field>
           <Field label="Affiliation or motto">
             <Input
               value={preset.affiliation}
-              placeholder="Affiliated to National Examinations Board"
+              placeholder="Affiliated to NEB"
               onChange={(event) => patchPreset({ affiliation: event.target.value })}
             />
           </Field>
@@ -395,7 +395,17 @@ export default function SettingsPage() {
             checked={settings.confirmBeforeDelete}
             onChange={(confirmBeforeDelete) => updateSettings({ confirmBeforeDelete })}
             label="Ask before deleting"
-            hint="Applies to questions, sections and whole papers. Undo (Ctrl+Z) covers you either way."
+            /*
+             * This used to read "Undo (Ctrl+Z) covers you either way", which was
+             * true of questions and sections and false of the thing that matters
+             * most. Undo replays snapshots of the paper being edited, so deleting
+             * a question or a section is recoverable but deleting a whole paper
+             * is not — the paper is gone from the list and there is no snapshot
+             * of the list to go back to. A teacher who believed the old sentence
+             * could reasonably switch this off and lose a term's work, so it now
+             * says which half Undo actually reaches.
+             */
+            hint="Applies to questions, sections and whole papers. Undo (Ctrl+Z) brings back a deleted question or section, but not a deleted paper."
           />
           <Divider />
           <Toggle
@@ -474,7 +484,7 @@ export default function SettingsPage() {
 
           <p className="text-[11px] leading-relaxed text-ink-400 dark:text-ink-500">
             A backup holds every paper, your whole question bank and these settings. To move a single
-            paper instead, use “Save as a file” on its card in{' '}
+            paper instead, use “Back up this paper” on its card in{' '}
             <Link
               href="/papers"
               className="font-medium underline decoration-dotted underline-offset-2 hover:text-ink-600 dark:hover:text-ink-300"
@@ -490,19 +500,19 @@ export default function SettingsPage() {
       <Card className="border-rose-200 dark:border-rose-900">
         <CardHeader
           icon={<AlertTriangle className="h-4 w-4" />}
-          title="Start over"
-          description="Puts the app back to how it arrived, sample papers and all."
+          title="Delete everything"
+          description="Empties this browser completely. There is no undo."
         />
         <CardBody className="pt-0">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-rose-50 p-3 dark:bg-rose-950/50">
             <p className="min-w-0 text-xs leading-relaxed text-rose-900 dark:text-rose-200">
-              This discards all {paperCount} papers and your bank, then restores the three sample
-              papers. It cannot be undone from inside the app — download a backup first if you are
-              unsure.
+              Deletes all {paperCount} paper{paperCount === 1 ? '' : 's'}, your whole question bank
+              and every preference, and leaves the app empty. It cannot be undone from inside the
+              app — download a backup first if you are unsure.
             </p>
             <Button size="sm" variant="danger" onClick={askReset}>
               <Trash2 className="h-3.5 w-3.5" />
-              Reset everything
+              Delete everything
             </Button>
           </div>
         </CardBody>

@@ -128,7 +128,7 @@ export function MarksMeter({ className }: { className?: string }) {
       <CardBody className="space-y-3">
         <div className="grid grid-cols-3 gap-2">
           <Stat label="Full marks" value={summary.fullMarks} />
-          <Stat label="Current" value={summary.total} valueClass={TONE_VALUE[loud ? copy.tone : 'neutral']} />
+          <Stat label="Assigned" value={summary.total} valueClass={TONE_VALUE[loud ? copy.tone : 'neutral']} />
           <Stat
             label={summary.remaining < 0 ? 'Over by' : 'Remaining'}
             value={Math.abs(summary.remaining)}
@@ -136,26 +136,28 @@ export function MarksMeter({ className }: { className?: string }) {
           />
         </div>
 
-        <div>
+        <div
+          className="h-2 w-full overflow-hidden rounded-full bg-ink-200 dark:bg-ink-700"
+          role="progressbar"
+          aria-valuenow={summary.total}
+          aria-valuemin={0}
+          aria-valuemax={summary.fullMarks || undefined}
+          aria-label="Marks assigned"
+        >
           <div
-            className="h-2 w-full overflow-hidden rounded-full bg-ink-200 dark:bg-ink-700"
-            role="progressbar"
-            aria-valuenow={summary.total}
-            aria-valuemin={0}
-            aria-valuemax={summary.fullMarks || undefined}
-            aria-label="Marks allocated"
-          >
-            <div
-              className={cn('h-full rounded-full transition-[width] duration-300', TONE_BAR[copy.tone])}
-              style={{ width: `${summary.status === 'over' ? 100 : percent}%` }}
-            />
-          </div>
-          <p className="mt-1 text-right text-[11px] tabular-nums text-ink-400">
-            {summary.fullMarks > 0
-              ? `${summary.total} / ${summary.fullMarks} allocated (${percent}%)`
-              : 'Set full marks in Examination Details'}
-          </p>
+            className={cn('h-full rounded-full transition-[width] duration-300', TONE_BAR[copy.tone])}
+            style={{ width: `${summary.status === 'over' ? 100 : percent}%` }}
+          />
         </div>
+
+        {/* The three numbers above already say "40 of 75", so the bar gets no
+          * caption of its own — except when full marks is still 0, where the only
+          * useful thing to print is what to go and do about it. */}
+        {summary.fullMarks === 0 ? (
+          <p className="text-[11px] text-ink-400">
+            Set full marks under Examination details to see how much is left.
+          </p>
+        ) : null}
 
         <div className={cn('flex items-start gap-2 rounded-xl px-3 py-2', TONE_STRIP[stripTone])}>
           <Icon className="mt-0.5 h-4 w-4 flex-none" aria-hidden />
@@ -165,34 +167,25 @@ export function MarksMeter({ className }: { className?: string }) {
           </div>
         </div>
 
-        {summary.perSection.length > 0 ? (
+        {summary.perSection.length > 1 ? (
           <div>
             <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-400">
               By section
             </p>
-            <ul className="space-y-1.5">
-              {summary.perSection.map((section) => {
-                const share = summary.total > 0 ? Math.round((section.marks / summary.total) * 100) : 0
-                return (
-                  <li key={section.sectionId} className="flex items-center gap-2 text-xs">
-                    <span className="min-w-0 flex-1 truncate text-ink-700 dark:text-ink-200">
-                      {section.title || 'Untitled section'}
-                    </span>
-                    <span className="flex-none text-[11px] tabular-nums text-ink-400">
-                      {section.questionCount} q
-                    </span>
-                    <span className="h-1.5 w-14 flex-none overflow-hidden rounded-full bg-ink-200 dark:bg-ink-700">
-                      <span
-                        className="block h-full rounded-full bg-brand-500"
-                        style={{ width: `${share}%` }}
-                      />
-                    </span>
-                    <span className="w-12 flex-none text-right font-semibold tabular-nums text-ink-800 dark:text-ink-100">
-                      {section.marks}
-                    </span>
-                  </li>
-                )
-              })}
+            <ul className="space-y-1">
+              {summary.perSection.map((section) => (
+                <li key={section.sectionId} className="flex items-center gap-2 text-xs">
+                  <span className="min-w-0 flex-1 truncate text-ink-700 dark:text-ink-200">
+                    {section.title || 'Untitled section'}
+                  </span>
+                  <span className="flex-none text-[11px] tabular-nums text-ink-400">
+                    {section.questionCount} question{section.questionCount === 1 ? '' : 's'}
+                  </span>
+                  <span className="w-16 flex-none text-right font-semibold tabular-nums text-ink-800 dark:text-ink-100">
+                    {marksWord(section.marks)}
+                  </span>
+                </li>
+              ))}
             </ul>
           </div>
         ) : null}

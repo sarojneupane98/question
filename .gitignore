@@ -5,7 +5,13 @@
 *.tsbuildinfo
 next-env.d.ts
 
-.env*.local
+# Every shape of env file, not just `.env*.local`. This app ships as a static
+# export, so anything committed here would end up readable in the published
+# bundle — a leaked key could not be "unleaked" by deleting the file later.
+.env
+.env.*
+!.env.example
+
 .DS_Store
 Thumbs.db
 npm-debug.log*

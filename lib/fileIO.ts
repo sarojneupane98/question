@@ -48,6 +48,7 @@ import {
 import { sanitizeRichHtml } from './html'
 import { nowIso, slugify, uid } from './ids'
 import { saveTextBlob } from './saveBlob'
+import { BACKUP_UPLOAD, checkUpload, type UploadRule } from './upload'
 import type {
   AppSettings,
   BankEntry,
@@ -197,7 +198,9 @@ function isoDate(value: unknown, fallback: string): string {
  */
 function dataUrl(value: unknown): string | null {
   if (typeof value !== 'string') return null
-  return /^data:image\/[a-z0-9.+-]+[;,]/i.test(value.trim()) ? value.trim() : null
+  // `(?!svg)` keeps SVG out even here: it is a document, not a picture, and the
+  // DOCX writer would embed its bytes as if they were a bitmap.
+  return /^data:image\/(?!svg)[a-z0-9.+-]+[;,]/i.test(value.trim()) ? value.trim() : null
 }
 
 /* -------------------------------------------------------------------------- */
@@ -553,8 +556,15 @@ export function parseBackupJson(text: string): BackupPayload {
  * `File.text()` is not available in every engine this app supports, and
  * `FileReader` is. The wrapper also turns a read failure into our own error
  * type so callers have exactly one `catch` shape to handle.
+ *
+ * The `rule` is checked before a single byte is read. Without it a mistyped
+ * click on a 2 GB video would be read into memory in full and only rejected
+ * once `JSON.parse` choked on it, by which point the tab is already gone.
  */
-export function readFileAsText(file: File): Promise<string> {
+export function readFileAsText(file: File, rule: UploadRule = BACKUP_UPLOAD): Promise<string> {
+  const problem = checkUpload(file, rule)
+  if (problem) return Promise.reject(new FileImportError(problem))
+
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(String(reader.result ?? ''))

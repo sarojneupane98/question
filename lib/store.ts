@@ -19,7 +19,7 @@ import {
 import { clone, nowIso, uid } from './ids'
 import { autoBalanceMarks, balanceSectionTo } from './marks'
 import { STORAGE_KEY, safeLocalStorage } from './storage'
-import { createSampleBank, createSamplePapers } from './sample'
+import { createExamplePaper } from './sample'
 import { getTemplate } from './templates'
 import type {
   AppSettings,
@@ -85,6 +85,8 @@ interface TransientState {
 
 interface Actions {
   bootstrap: () => void
+  /** Adds the one example paper and opens it. Returns its id. */
+  loadExample: () => string
 
   /* paper lifecycle ------------------------------------------------------- */
   newPaper: (templateId?: string | null) => string
@@ -236,16 +238,28 @@ export const useAppStore = create<AppStore>()(
         bootstrap: () => {
           const state = get()
           if (state.hydrated) return
-          let papers = state.papers
-          let bank = state.bank
-          if (papers.length === 0) {
-            papers = createSamplePapers()
-            bank = bank.length === 0 ? createSampleBank() : bank
-          }
-          const currentPaperId = papers.some((p) => p.id === state.currentPaperId)
+          // Deliberately does not create anything. An empty library is the
+          // honest state for a teacher who has not written a paper yet, and it
+          // stays empty until they press a button — nothing this app invented
+          // should ever appear in "My Question Papers" as though they wrote it.
+          // The example paper is one click away on the dashboard.
+          const currentPaperId = state.papers.some((p) => p.id === state.currentPaperId)
             ? state.currentPaperId
-            : (papers[0]?.id ?? null)
-          set({ papers, bank, currentPaperId, hydrated: true, past: [], future: [] })
+            : (state.papers[0]?.id ?? null)
+          set({ currentPaperId, hydrated: true, past: [], future: [] })
+        },
+
+        loadExample: () => {
+          const paper = createExamplePaper()
+          set((state) => ({
+            papers: [paper, ...state.papers],
+            currentPaperId: paper.id,
+            past: [],
+            future: [],
+            activeQuestionId: null,
+            lastSavedAt: paper.updatedAt,
+          }))
+          return paper.id
         },
 
         /* paper lifecycle ------------------------------------------------- */
@@ -736,16 +750,19 @@ export const useAppStore = create<AppStore>()(
         canRedo: () => get().future.length > 0,
 
         resetEverything: () => {
+          // Reset means delete. Putting demo papers back would leave the teacher
+          // looking at a library that is neither empty nor theirs, with no way to
+          // tell whether their own work had actually gone.
           set({
-            papers: createSamplePapers(),
-            bank: createSampleBank(),
+            papers: [],
+            bank: [],
             settings: clone(DEFAULT_SETTINGS),
+            currentPaperId: null,
             past: [],
             future: [],
             activeQuestionId: null,
+            lastSavedAt: null,
           })
-          const first = get().papers[0]
-          set({ currentPaperId: first ? first.id : null })
         },
       }
     },

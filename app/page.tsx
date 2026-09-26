@@ -135,7 +135,7 @@ export default function LandingPage() {
                 href="/editor"
                 className="inline-flex h-12 items-center gap-2 rounded-xl bg-brand-600 px-6 text-base font-semibold text-white shadow-glow transition-colors hover:bg-brand-700"
               >
-                Create Question Paper
+                Start a question paper
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <a
@@ -210,9 +210,9 @@ export default function LandingPage() {
                 From blank page to printed paper in four steps
               </h2>
               <p className="mt-4 text-sm leading-relaxed text-ink-500 dark:text-ink-400">
-                A sample Class 8 Science paper is already loaded, so you can open the editor and
-                try the whole flow — including both downloads — before typing a single question of
-                your own.
+                Nothing to install and no account to make. Open the editor and start typing — or
+                load the example paper from the dashboard and try the whole flow, both downloads
+                included, before writing a question of your own.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
@@ -267,7 +267,7 @@ export default function LandingPage() {
               href="/editor"
               className="mt-8 inline-flex h-12 items-center gap-2 rounded-xl bg-white px-6 text-base font-semibold text-brand-700 transition-colors hover:bg-brand-50"
             >
-              Create Question Paper
+              Start a question paper
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>

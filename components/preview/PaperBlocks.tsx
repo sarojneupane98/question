@@ -288,9 +288,24 @@ function McqRow({
   )
 }
 
+/*
+ * WHY THERE IS NO GRID HERE
+ * -------------------------
+ * "Match the following" is two lists printed side by side. The ruled box that
+ * used to be drawn round them was scaffolding for the layout rather than part
+ * of the question: on the printed paper it fenced off every single item and
+ * made a reading exercise look like a data table to be filled in.
+ *
+ * The `<table>` element stays, because it is what holds the two columns in step
+ * row for row and what lets a screen reader read "(i) … (a) …" as one pair. It
+ * simply prints as plain text in two columns. `lib/export/docx.ts` builds the
+ * same table with the same borderless style, so Word, the PDF and the print
+ * output all agree.
+ */
 const MATCH_CELL: React.CSSProperties = {
-  border: '1px solid #000000',
-  padding: '1.2mm 1.8mm',
+  // Right padding only: the left column has to start exactly where the question
+  // text above it starts, or the pairs sit in a shallow indent of their own.
+  padding: '0.45mm 5mm 0.45mm 0',
   verticalAlign: 'top',
   textAlign: 'left',
   wordBreak: 'break-word',
@@ -315,12 +330,8 @@ function MatchTable({
         {showHead ? (
           <thead>
             <tr>
-              <th style={{ ...MATCH_CELL, fontWeight: 700, backgroundColor: '#f3f4f6' }}>
-                {headLeft}
-              </th>
-              <th style={{ ...MATCH_CELL, fontWeight: 700, backgroundColor: '#f3f4f6' }}>
-                {headRight}
-              </th>
+              <th style={{ ...MATCH_CELL, fontWeight: 700, paddingBottom: '1.4mm' }}>{headLeft}</th>
+              <th style={{ ...MATCH_CELL, fontWeight: 700, paddingBottom: '1.4mm' }}>{headRight}</th>
             </tr>
           </thead>
         ) : null}

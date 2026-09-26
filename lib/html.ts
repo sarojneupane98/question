@@ -27,7 +27,97 @@ const BLOCK_TAGS = new Set([
   'IMG',
 ])
 
-const DANGEROUS_TAGS = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'LINK', 'META', 'FORM'])
+/**
+ * The only elements allowed to survive sanitising.
+ *
+ * Derived from what this app can actually render and export rather than from
+ * what HTML offers: the Tiptap schema in `RichTextEditor.tsx`, the block list
+ * above, and the tags the DOCX walker understands (`lib/export/htmlToDocx.ts`).
+ * Headings and blockquotes are switched off in the editor but stay allowed,
+ * because the preview and the DOCX walker both handle them and an imported
+ * paper may carry them.
+ *
+ * Anything not listed is *unwrapped* rather than deleted — its text survives,
+ * its element does not — so an unexpected wrapper cannot silently swallow a
+ * teacher's question.
+ */
+const ALLOWED_TAGS = new Set([
+  // blocks
+  'p', 'div', 'br', 'hr',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'ul', 'ol', 'li',
+  'pre', 'blockquote',
+  'figure', 'figcaption',
+  'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th',
+  'img',
+  // inline
+  'strong', 'b', 'em', 'i', 'u', 's', 'strike', 'del', 'ins',
+  'sup', 'sub', 'code', 'span', 'mark', 'small', 'a',
+])
+
+/**
+ * Elements removed with their whole subtree instead of being unwrapped.
+ *
+ * Unwrapping these would be worse than useless: `<style>` would spill CSS into
+ * the paper as visible text, and `<svg>`/`<math>` open foreign-content
+ * namespaces where tag names stay case-sensitive and `<script>` is legal — the
+ * classic way past a sanitiser that compares uppercase HTML tag names only.
+ */
+const DROP_SUBTREE = [
+  'script', 'style', 'iframe', 'object', 'embed', 'link', 'meta', 'base',
+  'form', 'input', 'button', 'select', 'option', 'textarea', 'label',
+  'svg', 'math', 'template', 'noscript', 'frame', 'frameset', 'applet',
+  'audio', 'video', 'source', 'track', 'canvas', 'map', 'area', 'portal',
+].join(',')
+
+/** Attributes worth keeping, per element. Everything else is dropped. */
+const GLOBAL_ATTRS = new Set(['style', 'class'])
+const ATTRS_BY_TAG: Record<string, string[]> = {
+  img: ['src', 'alt', 'width', 'height'],
+  a: ['href', 'title'],
+  ol: ['start'],
+  td: ['colspan', 'rowspan'],
+  th: ['colspan', 'rowspan', 'scope'],
+  table: ['border'],
+}
+
+/** CSS properties an inline `style` may declare. `text-align` is the load-bearing one. */
+const ALLOWED_STYLE_PROPS = new Set([
+  'text-align',
+  'width',
+  'height',
+  'font-weight',
+  'font-style',
+  'text-decoration',
+  'vertical-align',
+])
+
+/**
+ * Link targets that cannot execute anything: the three real schemes, plus
+ * anchors and relative paths. Anything else — `javascript:`, `data:`, `vbscript:`,
+ * `file:` — fails to match and the `href` is dropped.
+ */
+const SAFE_HREF = /^(?:https?:\/\/|mailto:|tel:|#|\/|\.{0,2}\/|[^:]*$)/i
+
+/**
+ * Keeps only the declarations this app understands, and only when the value is a
+ * plain literal — no `url(...)`, no `expression(...)`, no CSS variables.
+ */
+function sanitizeStyle(style: string): string {
+  return style
+    .split(';')
+    .map((decl) => {
+      const at = decl.indexOf(':')
+      if (at < 0) return ''
+      const prop = decl.slice(0, at).trim().toLowerCase()
+      const value = decl.slice(at + 1).trim()
+      if (!ALLOWED_STYLE_PROPS.has(prop)) return ''
+      if (!value || /[()\\]|url|expression|var|@import/i.test(value)) return ''
+      return `${prop}: ${value}`
+    })
+    .filter(Boolean)
+    .join('; ')
+}
 
 function hasDom(): boolean {
   return typeof window !== 'undefined' && typeof DOMParser !== 'undefined'
@@ -66,48 +156,95 @@ function decodeBasicEntities(text: string): string {
 }
 
 /**
- * Removes anything that must never be injected via `dangerouslySetInnerHTML`.
- * The content is authored locally by the teacher, but papers can be imported
- * from a JSON file, so this is a real boundary.
+ * Reduces arbitrary HTML to the small subset this app can render, print and
+ * export. Everything that reaches `dangerouslySetInnerHTML`, jsPDF or docx.js
+ * passes through here first.
  *
- * Images are held to a stricter rule than the rest: every image this app
+ * The content is usually authored locally by the teacher — but a paper can
+ * arrive from a backup file or a Word document, so this is a real trust
+ * boundary and works as an allowlist: unknown elements are unwrapped, unknown
+ * attributes are dropped, and the handful of elements that would be dangerous
+ * even when emptied are deleted with their children.
+ *
+ * Images are held to a stricter rule than the rest. Every image this app
  * produces is a `data:image/...` URL from `prepareImageFile`, so an off-origin
  * `src` can only have come from a hand-edited or hostile file, where it would
- * make the page fetch a remote resource the teacher never chose. Such images are
- * dropped whole rather than left with a stripped `src`, which would print a
- * broken-image box in the middle of a question.
+ * make the page fetch a remote resource the teacher never chose — and would
+ * leak the fact that the paper was opened, to whoever owns that URL. Such
+ * images are dropped whole rather than left with a stripped `src`, which would
+ * print a broken-image box in the middle of a question. SVG is excluded even as
+ * a data URL: it is a document format, not a picture, and neither the PDF
+ * rasteriser nor the DOCX writer handles it usefully.
  */
 export function sanitizeRichHtml(html: string): string {
   if (!html) return ''
   const root = parseFragment(html)
-  if (!root) {
-    return html
-      .replace(/<\s*(script|style|iframe|object|embed|form)\b[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
-      .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-      .replace(/javascript:/gi, '')
-  }
+  if (!root) return sanitizeWithoutDom(html)
 
-  const walker = root.querySelectorAll('*')
-  walker.forEach((el) => {
-    if (DANGEROUS_TAGS.has(el.tagName)) {
+  // Whole subtrees first: emptying these would leave their text behind.
+  root.querySelectorAll(DROP_SUBTREE).forEach((el) => el.remove())
+
+  // `querySelectorAll` returns a static list in document order, so parents are
+  // always seen before their children — an unwrapped element's children are
+  // still visited after being promoted.
+  root.querySelectorAll('*').forEach((el) => {
+    const tag = el.localName.toLowerCase()
+
+    if (!ALLOWED_TAGS.has(tag)) {
+      el.replaceWith(...Array.from(el.childNodes))
+      return
+    }
+
+    if (tag === 'img' && !/^data:image\/(?!svg)[a-z0-9.+-]+[;,]/i.test(el.getAttribute('src') ?? '')) {
       el.remove()
       return
     }
-    if (el.tagName === 'IMG' && !/^data:image\//i.test(el.getAttribute('src') ?? '')) {
-      el.remove()
-      return
-    }
+
+    const allowed = ATTRS_BY_TAG[tag]
     Array.from(el.attributes).forEach((attr) => {
       const name = attr.name.toLowerCase()
-      const value = attr.value
-      if (name.startsWith('on')) el.removeAttribute(attr.name)
-      if ((name === 'href' || name === 'src') && /^\s*javascript:/i.test(value)) {
+      if (!GLOBAL_ATTRS.has(name) && !allowed?.includes(name)) {
+        el.removeAttribute(attr.name)
+        return
+      }
+      if (name === 'style') {
+        const safe = sanitizeStyle(attr.value)
+        if (safe) el.setAttribute('style', safe)
+        else el.removeAttribute(attr.name)
+        return
+      }
+      if (name === 'href' && !SAFE_HREF.test(attr.value.trim())) {
         el.removeAttribute(attr.name)
       }
     })
   })
+
   return root.innerHTML
 }
+
+/**
+ * Server-side fallback for when `DOMParser` is unavailable.
+ *
+ * Regexes cannot parse HTML, so this errs hard towards deletion: dangerous
+ * subtrees go first, then every remaining tag not on the allowlist is stripped
+ * to its text. The result may be plainer than the DOM path would give, which is
+ * the right way round — the DOM path runs in the browser, where the markup is
+ * actually rendered.
+ */
+function sanitizeWithoutDom(html: string): string {
+  return html
+    .replace(
+      /<\s*(script|style|iframe|object|embed|form|svg|math|template|noscript|canvas|video|audio)\b[\s\S]*?<\s*\/\s*\1\s*>/gi,
+      '',
+    )
+    .replace(/<\s*(script|style|iframe|object|embed|form|svg|math)\b[^>]*>/gi, '')
+    .replace(/<\/?([a-z][a-z0-9]*)\b[^>]*>/gi, (tag, name: string) =>
+      ALLOWED_TAGS.has(name.toLowerCase()) ? tag : '',
+    )
+    .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/javascript:/gi, '')
+}
+
 
 /**
  * Splits a rich-text string into its top-level block nodes.

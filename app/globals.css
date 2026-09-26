@@ -378,8 +378,82 @@
     pointer-events: none;
   }
 
-  .tiptap-surface .ProseMirror img.ProseMirror-selectednode {
+  /* ---- pictures -------------------------------------------------------- */
+
+  /**
+   * The editor's picture node view (`components/editor/ResizableImage.tsx`).
+   * None of this markup is saved: the document holds a plain
+   * `<img style="width: 48%">`, and the preview styles it with
+   * `.rich-content img` above.
+   */
+  .tiptap-surface .qpg-image {
+    margin: 0.4em 0;
+  }
+
+  .qpg-image-frame {
+    position: relative;
+    display: block;
+    /* Shrink-wraps the picture at its own size; an inline width overrides this
+       once the teacher has resized it. */
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .qpg-image-frame img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .tiptap-surface .ProseMirror .ProseMirror-selectednode img {
     outline: 2px solid #6366f1;
+  }
+
+  /**
+   * The resize grip. Hidden until the picture is hovered, selected or the grip
+   * itself is focused, so a question full of diagrams is not a field of blue
+   * squares — but it is always one hover away, and always tabbable.
+   */
+  .qpg-image-grip {
+    position: absolute;
+    right: -0.3rem;
+    bottom: -0.3rem;
+    height: 0.9rem;
+    width: 0.9rem;
+    border-radius: 0.2rem;
+    border: 1.5px solid #ffffff;
+    background: #6366f1;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.35);
+    cursor: nwse-resize;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+    /* Without this a touch drag scrolls the page instead of resizing. */
+    touch-action: none;
+  }
+
+  .qpg-image-frame:hover .qpg-image-grip,
+  .qpg-image-grip[data-visible='true'],
+  .qpg-image-grip:focus-visible {
+    opacity: 1;
+  }
+
+  .qpg-image-grip:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+  }
+
+  .qpg-image-size {
+    position: absolute;
+    right: 0.35rem;
+    bottom: 0.35rem;
+    border-radius: 0.25rem;
+    background: rgba(15, 23, 42, 0.8);
+    padding: 0.05rem 0.3rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #ffffff;
+    pointer-events: none;
   }
 
   .tiptap-surface .ProseMirror pre {

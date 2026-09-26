@@ -1,6 +1,7 @@
 'use client'
 
 import { forwardRef, useId } from 'react'
+import { ChevronDown } from 'lucide-react'
 
 import { cn } from '@/lib/cn'
 
@@ -61,6 +62,99 @@ export function CardHeader({
 
 export function CardBody({ className, children }: { className?: string; children: React.ReactNode }) {
   return <div className={cn('px-4 pb-4 sm:px-5 sm:pb-5', className)}>{children}</div>
+}
+
+/**
+ * A card whose body can be folded away, with the whole header as the control.
+ *
+ * WHY THIS EXISTS
+ * ---------------
+ * The editor's left column used to be five cards, all open, all the time —
+ * school address, exam details, instructions, every section, and eleven page
+ * layout controls — so the questions a teacher actually came to write started
+ * two screens down. Folding the setup away is what makes the page read as
+ * "write your questions" rather than "fill in this form".
+ *
+ * `summary` is the point of the closed state: a folded card still has to say
+ * what is inside it, or closing it just hides information. It is rendered in
+ * place of `description` while closed.
+ *
+ * The body stays mounted and is hidden with `hidden` rather than being
+ * unmounted. Tiptap instances live inside some of these cards, and unmounting
+ * one throws away its undo history and its selection — a teacher who folds
+ * "Instructions" to see more of the page should not lose their cursor.
+ */
+export function CollapsibleCard({
+  title,
+  description,
+  summary,
+  icon,
+  actions,
+  open,
+  onOpenChange,
+  className,
+  bodyClassName,
+  children,
+}: {
+  title: React.ReactNode
+  description?: React.ReactNode
+  summary?: React.ReactNode
+  icon?: React.ReactNode
+  actions?: React.ReactNode
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  className?: string
+  bodyClassName?: string
+  children: React.ReactNode
+}) {
+  const bodyId = useId()
+
+  return (
+    <Card className={className}>
+      <div className="flex items-start justify-between gap-3 px-4 py-3.5 sm:px-5">
+        <button
+          type="button"
+          onClick={() => onOpenChange(!open)}
+          aria-expanded={open}
+          aria-controls={bodyId}
+          className="-m-1 flex min-w-0 flex-1 items-start gap-3 rounded-lg p-1 text-left transition-colors hover:bg-ink-50 dark:hover:bg-ink-800/60"
+        >
+          {icon ? (
+            <span className="mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-300">
+              {icon}
+            </span>
+          ) : null}
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold text-ink-900 dark:text-white">
+              {title}
+            </span>
+            {open ? (
+              description ? (
+                <span className="mt-0.5 block text-xs leading-relaxed text-ink-500 dark:text-ink-400">
+                  {description}
+                </span>
+              ) : null
+            ) : summary ? (
+              <span className="mt-0.5 block truncate text-xs text-ink-500 dark:text-ink-400">
+                {summary}
+              </span>
+            ) : null}
+          </span>
+          <ChevronDown
+            aria-hidden
+            className={cn(
+              'mt-0.5 h-4 w-4 flex-none text-ink-400 transition-transform',
+              open && 'rotate-180',
+            )}
+          />
+        </button>
+        {actions ? <div className="flex flex-none items-center gap-1.5">{actions}</div> : null}
+      </div>
+      <div id={bodyId} className={cn(!open && 'hidden')}>
+        <CardBody className={bodyClassName}>{children}</CardBody>
+      </div>
+    </Card>
+  )
 }
 
 export function Divider({ className }: { className?: string }) {

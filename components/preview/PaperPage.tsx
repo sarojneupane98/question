@@ -50,13 +50,32 @@ export function PaperPage({
         style={{
           ...type.style,
           // Clipping is the last line of defence. Pagination should mean nothing
-          // ever overflows; if a single block really is taller than a page (a huge
-          // pasted image), clipping it is far better than letting it print on top
-          // of the footer.
+          // ever overflows; if a single block really is taller than a page it is
+          // spread over several (see `page.slice`), and this clip is what shows
+          // one page-tall window of it at a time.
           overflow: 'hidden',
         }}
       >
-        <PaperBlockList blocks={page.blocks} paper={paper} options={options} />
+        {page.slice ? (
+          /*
+            One window onto a block too tall for any page.
+
+            The outer box is exactly as tall as the window, so the clip lands on
+            the break the paginator chose — in the gap between two lines — rather
+            than at the foot of the content box, which would shave the tops off
+            the following line. The inner box is pulled up so the window starts
+            in the right place: `marginTop` and not `transform`, because a
+            transform does not affect layout and the block would still be
+            measured from the top of the box.
+          */
+          <div style={{ height: `${page.slice.lengthPx}px`, overflow: 'hidden' }}>
+            <div style={{ marginTop: `${-page.slice.offsetPx}px` }}>
+              <PaperBlockList blocks={page.blocks} paper={paper} options={options} />
+            </div>
+          </div>
+        ) : (
+          <PaperBlockList blocks={page.blocks} paper={paper} options={options} />
+        )}
       </div>
 
       {showPageNumbers ? (

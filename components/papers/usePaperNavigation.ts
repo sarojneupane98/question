@@ -66,3 +66,25 @@ export function useDuplicatePaper(): (paperId: string) => void {
     [duplicatePaper, router],
   )
 }
+
+/**
+ * Adds the example paper and opens it.
+ *
+ * Separate from `useCreatePaper` because it is a different promise: this one
+ * puts finished content in front of the teacher to look at, and the toast says
+ * so — otherwise a paper full of Class 8 Science questions appearing in their
+ * library with no explanation is alarming rather than helpful.
+ */
+export function useLoadExample(): () => void {
+  const router = useRouter()
+  const loadExample = useAppStore((state) => state.loadExample)
+
+  return useCallback(() => {
+    loadExample()
+    toast.info(
+      'Example paper opened',
+      'Have a look around, change anything you like, and delete it when you are done.',
+    )
+    router.push('/editor')
+  }, [loadExample, router])
+}

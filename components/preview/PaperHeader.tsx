@@ -39,10 +39,28 @@ function MetaGrid({ items, className = '' }: { items: MetaItem[]; className?: st
                 key={column}
                 style={{
                   flex: '1 1 0',
+                  minWidth: 0,
                   textAlign: align,
                   whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
+                  /*
+                   * Deliberately NOT `overflow: hidden` with an ellipsis, which is
+                   * what this used to be.
+                   *
+                   * The box is exactly one line-height tall with no slack, so the
+                   * page's own clipping rectangle sat right on the glyphs — and
+                   * html2canvas, which computes its text baseline a fraction
+                   * differently from the browser, pushed the ascenders and
+                   * descenders through it. The on-screen preview looked perfect
+                   * while the PDF had the top and bottom sliced off every meta
+                   * value ("Class: Class 8" arrived as "-lass: -lass 8").
+                   *
+                   * A meta value long enough to overrun its column now overruns it
+                   * visibly instead of being clipped. That is the right trade: the
+                   * paper margins and the sheet's own last-resort clip still stop
+                   * it leaving the page, the exporter no longer disagrees with the
+                   * preview, and a teacher can see the problem and shorten the
+                   * value. Pagination already guarantees nothing overflows here.
+                   */
                 }}
               >
                 {item ? (

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { EditorContent, useEditor, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import Subscript from '@tiptap/extension-subscript'
 import Superscript from '@tiptap/extension-superscript'
@@ -15,7 +14,9 @@ import TextAlign from '@tiptap/extension-text-align'
 import Underline from '@tiptap/extension-underline'
 
 import { RichTextToolbar, type ToolbarMode } from './RichTextToolbar'
+import { ResizableImage } from './ResizableImage'
 import { cn } from '@/lib/cn'
+import { sanitizeRichHtml } from '@/lib/html'
 
 /**
  * ============================================================================
@@ -148,7 +149,9 @@ export function RichTextEditor({
         Superscript,
         Subscript,
         TextAlign.configure({ types: ['paragraph'] }),
-        Image.configure({ inline: false, allowBase64: true }),
+        // Tiptap's Image node plus a corner handle, so a diagram can be sized
+        // to the space it deserves — see `ResizableImage.tsx`.
+        ResizableImage.configure({ inline: false, allowBase64: true }),
         Table.configure({ resizable: false }),
         TableRow,
         TableHeader,
@@ -218,8 +221,11 @@ export function RichTextEditor({
             minHeightClass ?? (inline ? 'min-h-[1.5rem]' : 'min-h-[4.5rem]'),
           )}
           // Shows the existing content while Tiptap boots so the card does not
-          // flash empty. Sanitised on the way into the store, never editable.
-          dangerouslySetInnerHTML={{ __html: value || '' }}
+          // flash empty. Sanitised again here rather than trusting the copy in
+          // the store: this is the one place the app writes raw HTML into the
+          // page, so it should not depend on every write path upstream having
+          // been careful.
+          dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(value || '') }}
         />
       </div>
     )

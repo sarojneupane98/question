@@ -98,7 +98,6 @@ export const TEMPLATES: TemplateDefinition[] = [
       'The full three-section school paper: objective, short answer and long answer, adding up to 100 marks.',
     tag: 'Most used',
     accent: 'from-brand-500 to-brand-700',
-    highlights: ['100 full marks', '3 sections', '35 questions laid out'],
     create: () =>
       buildPaper('school-exam', {
         name: 'School Examination',
@@ -141,7 +140,6 @@ export const TEMPLATES: TemplateDefinition[] = [
     description: 'A quick 20-mark check after finishing one chapter or unit. Fits on a single page.',
     tag: '',
     accent: 'from-emerald-500 to-teal-600',
-    highlights: ['20 full marks', '45 minutes', 'Single page'],
     create: () =>
       buildPaper('unit-test', {
         name: 'Unit Test',
@@ -172,7 +170,6 @@ export const TEMPLATES: TemplateDefinition[] = [
     description: 'Balanced 30-mark monthly assessment covering objective, short and long questions.',
     tag: '',
     accent: 'from-sky-500 to-blue-600',
-    highlights: ['30 full marks', '1 hour', 'Mixed question types'],
     create: () =>
       buildPaper('monthly-test', {
         name: 'Monthly Test',
@@ -214,7 +211,6 @@ export const TEMPLATES: TemplateDefinition[] = [
       'First / second / third terminal format used by most secondary schools — 75 marks over three hours.',
     tag: 'Popular',
     accent: 'from-violet-500 to-purple-700',
-    highlights: ['75 full marks', '3 sections', 'Terminal wording ready'],
     create: () =>
       buildPaper('terminal-exam', {
         name: 'Terminal Examination',
@@ -257,7 +253,6 @@ export const TEMPLATES: TemplateDefinition[] = [
       'Secondary Education Examination pattern: Group A very short, Group B short and Group C long, 75 marks.',
     tag: 'Board pattern',
     accent: 'from-amber-500 to-orange-600',
-    highlights: ['75 full marks', 'Group A / B / C', 'Roman numbering in Group A'],
     create: () =>
       buildPaper('see-style', {
         name: 'SEE Model Question Paper',
@@ -302,7 +297,6 @@ export const TEMPLATES: TemplateDefinition[] = [
     description: 'An empty paper with sensible print settings. Build the structure exactly how you want it.',
     tag: '',
     accent: 'from-ink-500 to-ink-700',
-    highlights: ['One empty section', 'Your school preset applied', 'Full control'],
     create: () => {
       const paper = createPaper({ name: 'Untitled question paper', templateId: 'blank' })
       paper.sections = [createSection(0, { title: 'Section A' })]

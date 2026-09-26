@@ -131,18 +131,19 @@ function TemplateCard({
           {template.description}
         </p>
 
-        <ul className="mt-3 space-y-1">
-          {template.highlights.map((highlight) => (
-            <li
-              key={highlight}
-              className="flex gap-1.5 text-xs text-ink-600 dark:text-ink-300"
-            >
-              <Check className="mt-0.5 h-3 w-3 flex-none text-emerald-500" aria-hidden />
-              <span>{highlight}</span>
-            </li>
-          ))}
-        </ul>
-
+        {/*
+         * The card used to carry a hand-written bullet list here as well. Every
+         * line of it was already on the card — "100 full marks", "3 sections",
+         * "35 questions laid out" restated the three figures immediately below,
+         * and "Fits on a single page" restated the sentence immediately above —
+         * so it padded the card without telling anyone anything. Worse, being
+         * hand-written it was the one part that could lie, and it had already
+         * started to: the SEE card advertised "Roman numbering in Group A" for a
+         * section built with `numberStyle: 'numeric'`.
+         *
+         * Everything below this point is derived from the paper the button
+         * actually produces, so the card can only say true things.
+         */}
         <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-ink-50 p-2.5 dark:bg-ink-800">
           <Figure label="Full marks" value={sample.exam.fullMarks} />
           <Figure label="Sections" value={summary.sectionCount} />

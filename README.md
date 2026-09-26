@@ -62,15 +62,60 @@ paths in shell commands (`cd "F:/Website/question paper solution"`).
 
 ---
 
-## Sample data
+## Starting with nothing, or with an example
 
-The app seeds itself the first time it runs: **three sample papers**, a **12-question
-question bank**, and a saved default school. So every feature — preview, pagination,
-marks totals, PDF and Word export — can be exercised immediately without typing
-anything.
+The app starts **empty**. It does not seed itself with demo papers, because a teacher
+cannot tell a sample paper they have never seen from one a colleague left behind, and
+sample content mixed into a real library is worse than an empty one.
 
-To get back to that state: **Settings → Start over → Reset everything**. It restores the
-samples rather than emptying the app.
+To see a finished paper instead, use **See an example paper** on the dashboard. It creates
+one ordinary paper you own — editable, renameable and deletable like any other.
+
+**Settings → Start over → Reset everything** deletes everything: papers, bank questions
+and settings. It does not put samples back.
+
+---
+
+## Bringing in questions you already have
+
+Each section has **Bring in questions**, which offers four routes to the same
+review-and-tick screen:
+
+| Route | What it reads |
+| --- | --- |
+| Upload a Word file | A real `.docx` — read in the browser, including Word's own auto-numbering |
+| Upload a text file | `.txt` or `.md` |
+| Paste | Anything you can copy, including out of a PDF reader |
+| Generate with AI | Needs setting up once — see below |
+
+Nothing is added to the paper until you press **Add**: the parse is a guess, so it is
+shown to you first and every row can be unticked.
+
+There is deliberately **no "Upload PDF" button**. Extracting text from a PDF needs a
+font- and glyph-aware engine; a partial one returns mangled text — joined ligatures,
+interleaved columns, shredded tables — which is worse than an honest no. Open the PDF,
+select all, copy, and paste instead.
+
+### AI generation, and why it is off by default
+
+**This app ships with no AI account and no API key, and never will.** It is a static site
+with no backend of ours, so there is nowhere for a key to live that is not somebody's
+browser. Generation is therefore off until you configure it, and the dialog says so
+rather than offering a button that fails.
+
+Two ways to turn it on, in the dialog itself:
+
+- **Through your school's own AI address** (recommended). You post to an endpoint your
+  school runs, which holds the key server-side. The browser never sees a secret. The
+  endpoint must be `https://` — this is enforced, not advised.
+- **Straight from this browser with your own key.** Convenient, and honestly labelled: a
+  key used from a web page can be read by that page. Use a key you can revoke, put a
+  spending limit on it, and never use a shared or school-wide key.
+
+In the second mode the key is held in **`sessionStorage` for that tab only**. Closing the
+tab erases it. It is never written to `localStorage`, never into the Zustand store, and
+therefore never into a paper or a backup file you might email. `lib/ai.ts` is the only
+file that touches a provider, and it explains the reasoning at the top.
 
 ---
 
@@ -81,7 +126,7 @@ samples rather than emptying the app.
 | `app/page.tsx` | Landing page |
 | `app/(app)/editor/` | The two-panel editor — form on the left, live A4 preview on the right |
 | `app/(app)/dashboard/` | Overview, recent papers, totals |
-| `app/(app)/papers/` | My Question Papers — rename, duplicate, export to file, delete, import |
+| `app/(app)/papers/` | My Question Papers — rename, duplicate, back up to a file, delete, restore |
 | `app/(app)/bank/` | Question Bank — filter, multi-select, insert into a section |
 | `app/(app)/templates/` | The six exam formats |
 | `app/(app)/settings/` | Theme, your details, default school and layout, backup, reset |
@@ -89,7 +134,10 @@ samples rather than emptying the app.
 | `lib/paperBlocks.ts` | **The shared document model** (see below) |
 | `lib/export/pdf.ts` | PDF via jsPDF + html2canvas, and the browser print route |
 | `lib/export/docx.ts` | Word export via docx.js |
-| `lib/sample.ts` | Seed papers and bank |
+| `lib/importQuestions.ts` | Reads `.docx`, text and pasted input into draft questions |
+| `lib/ai.ts` | The only file that talks to an AI provider — read its header first |
+| `lib/upload.ts` | One gate every uploaded file passes through |
+| `lib/sample.ts` | The example paper, created only when asked for |
 
 ### One model, three outputs
 
@@ -179,11 +227,23 @@ npm run build && npm run preview
 
 ## Data and privacy
 
-All papers, bank questions and settings are stored in your browser's localStorage. They
-are never sent anywhere. Consequences worth knowing:
+All papers, bank questions and settings are stored in your browser's localStorage, and
+nothing is uploaded. Uploaded Word and text files are read in the browser too — they are
+never sent to a server. Consequences worth knowing:
 
 - Clearing your browser's site data erases them. **Settings → Download a backup** first.
 - They do not follow you to another browser or computer; move them with a backup file,
-  or export a single paper from My Question Papers.
+  or back up a single paper from My Question Papers.
 - Storage is finite (a few MB). Large logos and pasted images are downscaled
   automatically, but a paper full of photographs can still fill it.
+- **The one exception is AI generation**, which you have to switch on yourself. When you
+  use it, the topic and instructions you type are sent to the AI service you configured —
+  and to nowhere else. Your papers are not sent. Nothing is sent at all unless you press
+  *Write questions*.
+
+### The site is public even if the repository is not
+
+This is a published website: anybody who knows the address can open it. That is fine,
+because every paper stays in the visitor's own browser and there is no shared database —
+but it does mean the repository is not a private place. Do not commit real pupil or staff
+data, and do not put confidential material in `public/`, which is served verbatim.

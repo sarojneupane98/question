@@ -9,7 +9,6 @@ import {
   PageNumber,
   Packer,
   Paragraph,
-  ShadingType,
   Table,
   TableCell,
   TableRow,
@@ -112,7 +111,7 @@ function run(text: string, opts: { bold?: boolean; italics?: boolean; underline?
     italics: opts.italics,
     underline: opts.underline ? { type: UnderlineType.SINGLE } : undefined,
     size: opts.size ?? L?.sizeHalfPt,
-    font: L?.fontName,
+    font: L?.fonts,
   })
 }
 
@@ -413,6 +412,14 @@ function mcqParagraph(
   })
 }
 
+/**
+ * "Match the following", as two borderless columns.
+ *
+ * Still a real Word table — that is what keeps the two columns aligned row for
+ * row, and a teacher can turn the borders back on in Word if their school wants
+ * them — but nothing is drawn, matching the preview, the PDF and the print
+ * output (see `MATCH_CELL` in `components/preview/PaperBlocks.tsx`).
+ */
 function matchTable(
   block: Extract<PaperBlock, { kind: 'match-table' }>,
   L: DocxLayout,
@@ -420,7 +427,7 @@ function matchTable(
   const width = L.contentWidthTwip - L.gutterTwip
   const half = Math.floor(width / 2)
 
-  const cell = (children: DocxInline[], head: boolean) =>
+  const cell = (children: DocxInline[]) =>
     new TableCell({
       children: [
         new Paragraph({
@@ -428,8 +435,9 @@ function matchTable(
           spacing: { before: 0, after: 0, line: L.lineTwentieths },
         }),
       ],
-      shading: head ? { type: ShadingType.CLEAR, fill: 'F3F4F6' } : undefined,
-      margins: { top: 40, bottom: 40, left: 90, right: 90 },
+      // No left margin: the first column starts where the question text does.
+      // The right margin is the gap between the two columns.
+      margins: { top: 20, bottom: 20, left: 0, right: 280 },
     })
 
   const rows: TableRow[] = []
@@ -439,8 +447,8 @@ function matchTable(
       new TableRow({
         tableHeader: true,
         children: [
-          cell([run(block.headLeft, { bold: true }, L)], true),
-          cell([run(block.headRight, { bold: true }, L)], true),
+          cell([run(block.headLeft, { bold: true }, L)]),
+          cell([run(block.headRight, { bold: true }, L)]),
         ],
       }),
     )
@@ -450,8 +458,8 @@ function matchTable(
     rows.push(
       new TableRow({
         children: [
-          cell([run(`${pair.leftLabel} `, { bold: true }, L), ...htmlToInlineRuns(pair.left, L)], false),
-          cell([run(`${pair.rightLabel} `, { bold: true }, L), ...htmlToInlineRuns(pair.right, L)], false),
+          cell([run(`${pair.leftLabel} `, { bold: true }, L), ...htmlToInlineRuns(pair.left, L)]),
+          cell([run(`${pair.rightLabel} `, { bold: true }, L), ...htmlToInlineRuns(pair.right, L)]),
         ],
       }),
     )
@@ -463,12 +471,12 @@ function matchTable(
     columnWidths: [half, width - half],
     indent: { size: L.gutterTwip, type: WidthType.DXA },
     borders: {
-      top: THIN,
-      bottom: THIN,
-      left: THIN,
-      right: THIN,
-      insideHorizontal: THIN,
-      insideVertical: THIN,
+      top: NO_BORDER,
+      bottom: NO_BORDER,
+      left: NO_BORDER,
+      right: NO_BORDER,
+      insideHorizontal: NO_BORDER,
+      insideVertical: NO_BORDER,
     },
   })
 }
@@ -718,6 +726,12 @@ async function measureImages(paper: Paper): Promise<Map<string, { width: number;
 /** A4 in twips. */
 const A4_TWIP = { width: 11906, height: 16838 }
 
+/**
+ * The font Word should use for complex scripts — in practice Devanagari, for the
+ * Nepali papers this app is built for. Ships with Windows 8 and later.
+ */
+const COMPLEX_SCRIPT_FONT = 'Nirmala UI'
+
 export async function buildPaperDocx(paper: Paper): Promise<Blob> {
   const { layout } = paper
   const font = getFontSpec(layout.font)
@@ -730,11 +744,34 @@ export async function buildPaperDocx(paper: Paper): Promise<Blob> {
   const gutterCh = computeNumberGutter(blocks)
 
   const L: DocxLayout = {
-    fontName: font.docxName,
+    fonts: {
+      ascii: font.docxName,
+      hAnsi: font.docxName,
+      eastAsia: font.docxName,
+      /*
+       * Devanagari, not the Latin face, because `cs` is the slot Word reads for
+       * complex scripts — and a Nepali question paper is the reason this app
+       * exists. Naming the Latin font here (which is what a single font string
+       * does) tells Word to set देवनागरी in Times New Roman, a font with no
+       * Devanagari glyphs at all; whether the teacher then gets correct
+       * conjuncts, wrong ones, or empty boxes is left to their Word build's
+       * fallback. Nirmala UI ships with Windows and covers the script properly.
+       * On a machine without it Word substitutes, which is no worse than the
+       * fallback that was happening anyway, and Latin text is untouched either
+       * way: `cs` is never consulted for it.
+       */
+      cs: COMPLEX_SCRIPT_FONT,
+    },
     sizeHalfPt: ptToHalfPt(layout.fontSizePt),
     lineTwentieths: Math.round(240 * layout.lineHeight),
     images,
     maxImageWidthPx: mmToImagePx(geometry.contentWidthMm * 0.9),
+    // The DOCX text column is exactly `contentHeightMm` tall, because the footer
+    // band is folded into the bottom margin below. The same 0.9 as the width
+    // keeps a picture clear of the very edge of the column, which in Word is
+    // enough to stop a full-height image pushing its own paragraph mark — and so
+    // a nearly blank sheet — onto the following page.
+    maxImageHeightPx: mmToImagePx(geometry.contentHeightMm * 0.9),
     contentWidthTwip: mmToTwip(geometry.contentWidthMm),
     // A digit is half an em wide in every font this app offers, so `ch` converts
     // to twips as (chars x 0.5em x 20 twips/pt). Keeping the gutter in step with
@@ -754,7 +791,7 @@ export async function buildPaperDocx(paper: Paper): Promise<Blob> {
     styles: {
       default: {
         document: {
-          run: { font: L.fontName, size: L.sizeHalfPt, color: '000000' },
+          run: { font: L.fonts, size: L.sizeHalfPt, color: '000000' },
           paragraph: { spacing: { line: L.lineTwentieths, before: 0, after: 0 } },
         },
       },
@@ -787,7 +824,7 @@ export async function buildPaperDocx(paper: Paper): Promise<Blob> {
                       new TextRun({
                         children: ['Page ', PageNumber.CURRENT, ' of ', PageNumber.TOTAL_PAGES],
                         size: ptToHalfPt(9),
-                        font: L.fontName,
+                        font: L.fonts,
                       }),
                     ],
                   }),

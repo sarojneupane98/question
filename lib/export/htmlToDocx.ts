@@ -34,6 +34,22 @@ import { dataUrlMimeType, dataUrlToUint8Array } from '../imageUtils'
 export const MONO_FONT = 'Consolas'
 export const CODE_FILL = 'F3F4F6'
 
+/**
+ * Word's four font slots for one run.
+ *
+ * Word does not pick a font by looking at the characters; it picks by *script*,
+ * and consults a different slot for each. Latin text uses `ascii`/`hAnsi`, and
+ * complex scripts — Devanagari among them — use `cs`. Naming one font for all
+ * four therefore says "render Nepali in Times New Roman", which Times New Roman
+ * cannot do; what a teacher then sees depends on their Word build's fallback.
+ */
+export interface DocxRunFonts {
+  ascii: string
+  hAnsi: string
+  eastAsia: string
+  cs: string
+}
+
 /** One run's formatting, accumulated as the walker descends. */
 interface RunStyle {
   bold?: boolean
@@ -46,8 +62,8 @@ interface RunStyle {
 }
 
 export interface DocxTextContext {
-  /** Word font name, e.g. "Times New Roman". */
-  fontName: string
+  /** Word font per script slot, e.g. Times New Roman for Latin. */
+  fonts: DocxRunFonts
   /** Body size in half-points (docx's unit). */
   sizeHalfPt: number
   /** `spacing.line` value: 240 = single spacing. */
@@ -56,6 +72,8 @@ export interface DocxTextContext {
   images: Map<string, { width: number; height: number }>
   /** Widest an image may be drawn, in 96-dpi pixels. */
   maxImageWidthPx: number
+  /** Tallest an image may be drawn, in 96-dpi pixels. */
+  maxImageHeightPx: number
 }
 
 export type DocxInline = TextRun | ImageRun
@@ -130,13 +148,32 @@ function textRun(text: string, style: RunStyle, ctx: DocxTextContext): TextRun {
     strike: style.strike,
     superScript: style.superScript,
     subScript: style.subScript,
-    font: style.mono ? MONO_FONT : ctx.fontName,
+    font: style.mono ? MONO_FONT : ctx.fonts,
     size: style.mono ? Math.round(ctx.sizeHalfPt * 0.9) : ctx.sizeHalfPt,
     shading: style.mono ? { type: ShadingType.CLEAR, fill: CODE_FILL } : undefined,
   })
 }
 
-function imageRun(src: string, ctx: DocxTextContext): ImageRun | null {
+/**
+ * The width a teacher set by dragging the picture's corner handle, as pixels in
+ * this column.
+ *
+ * `components/editor/ResizableImage.tsx` stores it as a percentage of the line,
+ * so the share of the column a picture takes in Word is the share it takes in
+ * the preview — to within the small safety margin `maxImageWidthPx` already
+ * holds back from the column edge.
+ */
+function requestedWidthPx(el: HTMLElement, ctx: DocxTextContext): number | null {
+  const match = /^\s*([\d.]+)\s*%\s*$/.exec(el.style.width || '')
+  if (!match) return null
+  const percent = Number(match[1])
+  if (!Number.isFinite(percent) || percent <= 0) return null
+  return (Math.min(100, percent) / 100) * ctx.maxImageWidthPx
+}
+
+function imageRun(el: HTMLElement, ctx: DocxTextContext): ImageRun | null {
+  const src = el.getAttribute('src') ?? ''
+
   // docx cannot embed SVG. Skipping is better than writing a file Word refuses
   // to open; the PDF route still renders it.
   if (dataUrlMimeType(src).includes('svg')) return null
@@ -145,13 +182,40 @@ function imageRun(src: string, ctx: DocxTextContext): ImageRun | null {
   if (!data) return null
 
   const natural = ctx.images.get(src) ?? { width: 320, height: 200 }
-  const scale = Math.min(1, ctx.maxImageWidthPx / Math.max(1, natural.width))
+  const ratio = natural.height / Math.max(1, natural.width)
+
+  // The teacher's own size wins where they set one; otherwise the picture is
+  // drawn at the size it came in at.
+  const wantedWidth = requestedWidthPx(el, ctx) ?? natural.width
+  const wantedHeight = wantedWidth * ratio
+
+  /*
+   * Bounded on both axes, and this is where DOCX has to part company with the
+   * preview and the PDF.
+   *
+   * There, a picture taller than the sheet is kept at full size and spread over
+   * consecutive pages, each showing one window of it. Word offers no equivalent:
+   * an inline image can neither be split across a page boundary nor scaled down
+   * by Word to make it fit, so one taller than the text column is simply cut off
+   * at the bottom of the page — the teacher opens the file and part of the
+   * diagram is gone, with nothing to say so.
+   *
+   * Shrinking it to fit is therefore the honest trade: a smaller picture the
+   * teacher can see all of, and can enlarge by hand if they want, rather than a
+   * full-size one missing its lower half. The aspect ratio is preserved, so the
+   * only visible difference is scale.
+   */
+  const scale = Math.min(
+    1,
+    ctx.maxImageWidthPx / Math.max(1, wantedWidth),
+    ctx.maxImageHeightPx / Math.max(1, wantedHeight),
+  )
 
   return new ImageRun({
     data,
     transformation: {
-      width: Math.max(8, Math.round(natural.width * scale)),
-      height: Math.max(8, Math.round(natural.height * scale)),
+      width: Math.max(8, Math.round(wantedWidth * scale)),
+      height: Math.max(8, Math.round(wantedHeight * scale)),
     },
   })
 }
@@ -199,7 +263,7 @@ function inlineRuns(node: Node, style: RunStyle, ctx: DocxTextContext): DocxInli
         out.push(...inlineRuns(el, { ...style, mono: true }, ctx))
         break
       case 'IMG': {
-        const run = imageRun(el.getAttribute('src') ?? '', ctx)
+        const run = imageRun(el, ctx)
         if (run) out.push(run)
         break
       }
@@ -454,7 +518,7 @@ function childBlocks(root: HTMLElement, ctx: DocxTextContext, indentTwip: number
         )
         break
       case 'IMG': {
-        const run = imageRun(el.getAttribute('src') ?? '', ctx)
+        const run = imageRun(el, ctx)
         if (run) inlineBuffer.push(run)
         break
       }

@@ -1,7 +1,7 @@
 import { splitHtmlIntoTopLevelBlocks, toInlineHtml, htmlToPlainText } from './html'
 import { sectionMarks } from './marks'
 import { formatQuestionLabel, matchLeftLabel, matchRightLabel, optionLabel } from './numbering'
-import type { PaginatedPage, Paper, PaperBlock, Question } from './types'
+import type { BlockSlice, PaginatedPage, Paper, PaperBlock, Question } from './types'
 
 /**
  * ============================================================================
@@ -372,6 +372,21 @@ export function answerLineHeightMm(fontSizePt: number): number {
 const FIT_EPSILON = 0.75
 
 /**
+ * Fallback windows for an over-tall block: plain page-sized steps.
+ *
+ * Used when no line-aware offsets are available — an image-only block has no
+ * line boxes to snap to, and a caller may simply not supply them.
+ */
+function uniformSliceOffsets(heightPx: number, contentHeightPx: number): number[] {
+  if (contentHeightPx <= 0) return [0]
+  const offsets: number[] = []
+  for (let offset = 0; offset < heightPx - FIT_EPSILON; offset += contentHeightPx) {
+    offsets.push(offset)
+  }
+  return offsets.length > 0 ? offsets : [0]
+}
+
+/**
  * Greedy page-filling with keep-with-next lookahead.
  *
  * `heightOf` returns the measured pixel height of a block (see
@@ -382,19 +397,21 @@ const FIT_EPSILON = 0.75
  *   • a block marked `breakBefore` starts a fresh page
  *   • a block plus its `keepWithNext` followers must fit, or the block moves on
  *   • a page never *starts* with a spacer (that would print as a stray gap)
- *   • a block taller than a whole page is placed alone rather than dropped
+ *   • a block taller than a whole page is spread over consecutive pages
+ *   • a page that ends up with nothing printable on it is not emitted
  */
 export function paginateBlocks(
   blocks: PaperBlock[],
   heightOf: (blockId: string) => number,
   contentHeightPx: number,
+  sliceOffsetsFor?: (blockId: string, heightPx: number) => number[] | null,
 ): PaginatedPage[] {
-  const pages: PaperBlock[][] = []
+  const pages: Array<{ blocks: PaperBlock[]; slice?: BlockSlice }> = []
   let current: PaperBlock[] = []
   let used = 0
 
   const flush = () => {
-    pages.push(current)
+    pages.push({ blocks: current })
     current = []
     used = 0
   }
@@ -407,27 +424,94 @@ export function paginateBlocks(
     if (block.breakBefore && current.length > 0) flush()
 
     const height = heightOf(block.id)
+
+    /*
+     * `keepWithNext` is best-effort, not absolute.
+     *
+     * A block and its followers can add up to more than a whole page — a section
+     * heading whose first question is longer than the sheet, say — and then no
+     * page anywhere can satisfy the keep. Demanding it anyway would flush to a
+     * fresh page that cannot hold the group either, and the heading would end up
+     * alone on a 90%-blank sheet: a wasted page, and one a teacher pays to
+     * print. So the group is narrowed to the longest run that could actually
+     * fit, which for the impossible case means the block travels on its own.
+     */
     let required = height
     for (let k = 1; k <= block.keepWithNext && i + k < blocks.length; k += 1) {
-      required += heightOf(blocks[i + k].id)
+      const grown = required + heightOf(blocks[i + k].id)
+      if (grown > contentHeightPx + FIT_EPSILON) break
+      required = grown
     }
 
     if (current.length > 0 && used + required > contentHeightPx + FIT_EPSILON) {
       flush()
     }
 
+    /*
+     * A block taller than an entire page cannot be placed by moving it — there
+     * is nowhere it fits. It used to be put on a page of its own and left to be
+     * clipped by `.paper-content`, which meant a long comprehension passage
+     * printed its first page and silently dropped the rest. Losing a teacher's
+     * text without saying so is the worst thing this function could do.
+     *
+     * So it is spread instead: the same block is emitted on as many consecutive
+     * pages as it needs, and each page records how far to shift it up. The
+     * content box's clipping, which was the bug, becomes the mechanism — each
+     * page shows exactly one page-tall window of the block.
+     *
+     * This is safe only because blocks use padding and never margin (see
+     * `PaperBlocks.tsx`): the measured height is exactly the space the block
+     * occupies, so the windows tile it without gaps or overlap.
+     */
+    if (contentHeightPx > 0 && height > contentHeightPx + FIT_EPSILON) {
+      if (current.length > 0) flush()
+
+      /*
+       * Where the windows fall matters: stepping by exactly the page height cuts
+       * straight through a line of text, so the last visible line of one page and
+       * the first of the next are both sliced horizontally. Callers that can see
+       * the rendered DOM pass line-aware offsets instead, which put every break
+       * in the gap between two lines. The uniform steps are the fallback for
+       * blocks with no lines to snap to, such as an oversized image.
+       */
+      const offsets = sliceOffsetsFor?.(block.id, height) ?? uniformSliceOffsets(height, contentHeightPx)
+
+      offsets.forEach((offsetPx, index) => {
+        // Each window runs to the next one's start, and the last to the end of
+        // the block. The renderer needs the length as well as the start: the
+        // break sits in the gap between two lines, which is a little short of a
+        // full page, so a page that clipped at its own foot instead would show
+        // the tops of the next line's letters.
+        const nextOffset = index + 1 < offsets.length ? offsets[index + 1] : height
+        pages.push({
+          blocks: [block],
+          slice: { blockId: block.id, offsetPx, lengthPx: nextOffset - offsetPx },
+        })
+      })
+      continue
+    }
+
     current.push(block)
     used += height
   }
 
-  if (current.length > 0) pages.push(current)
-  if (pages.length === 0) pages.push([])
+  if (current.length > 0) pages.push({ blocks: current })
+  if (pages.length === 0) pages.push({ blocks: [] })
 
-  // Trailing spacers at the foot of a page are invisible but pad the height —
-  // drop them so the last page's content sits flush.
-  return pages.map((pageBlocks, index) => {
-    let end = pageBlocks.length
-    while (end > 0 && pageBlocks[end - 1].kind === 'spacer') end -= 1
-    return { index, blocks: pageBlocks.slice(0, end) }
-  })
+  /*
+   * Trailing spacers at the foot of a page are invisible but pad the height —
+   * drop them so the last page's content sits flush. A page whose only content
+   * was such a spacer then has nothing left on it, and printing a blank sheet in
+   * the middle of a question paper looks like a fault in the app, so it is
+   * dropped too. The very first page is kept even when empty: an empty paper
+   * should still show one sheet rather than nothing at all.
+   */
+  return pages
+    .map((page) => {
+      let end = page.blocks.length
+      while (end > 0 && page.blocks[end - 1].kind === 'spacer') end -= 1
+      return { ...page, blocks: page.blocks.slice(0, end) }
+    })
+    .filter((page, index) => index === 0 || page.blocks.length > 0)
+    .map((page, index) => ({ index, blocks: page.blocks, slice: page.slice }))
 }

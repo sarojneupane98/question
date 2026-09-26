@@ -96,9 +96,9 @@ export function ExportBar({
     setBusy('json')
     try {
       const name = await exportPaperJson(paper)
-      toast.success('Paper saved as a file', `${name} — import it later from My Question Papers.`)
+      toast.success('Backup saved', `${name} — bring it back from My Question Papers → Import.`)
     } catch (error) {
-      toast.error('Could not save the file', describe(error))
+      toast.error('Could not save the backup', describe(error))
     } finally {
       setBusy(null)
       setOpen(false)
@@ -133,14 +133,27 @@ export function ExportBar({
         Download Word
       </Button>
 
-      <IconButton
-        label="Print or save as PDF"
+      {/*
+       * Labelled, not a bare printer glyph. Print is the third of the three ways
+       * out of this app, it is the only one that produces a PDF with selectable
+       * text, and the error toast above tells the teacher to reach for it when a
+       * download fails — advice that is useless if they cannot tell which button
+       * it is. An icon on its own asks the reader to recognise a symbol; a word
+       * asks them to read. The row wraps, so the extra width costs nothing.
+       */}
+      <Button
         variant="outline"
         disabled={busy !== null || !ready}
         onClick={() => printPaper()}
+        title={
+          ready
+            ? 'Send it to a printer, or choose “Save as PDF” in the print window'
+            : 'Waiting for the preview to finish laying out'
+        }
       >
         <Printer className="h-4 w-4" />
-      </IconButton>
+        Print
+      </Button>
 
       <div className="relative" ref={ref}>
         <IconButton
@@ -183,22 +196,24 @@ export function ExportBar({
               <Save className="mt-0.5 h-3.5 w-3.5 flex-none text-ink-500" aria-hidden />
               <span>
                 <span className="block text-xs font-semibold text-ink-800 dark:text-ink-100">
-                  Save as a file (.json)
+                  Backup this paper
                 </span>
                 <span className="block text-[11px] leading-snug text-ink-400">
-                  A backup you can import on another computer. Not for printing.
+                  Saves a file you can bring back later, or open on another computer. Not for
+                  printing.
                 </span>
               </span>
             </button>
 
             {/*
-             * Worth spelling out: the download route rasterises, the print route
-             * does not. A teacher who wants selectable text in the PDF needs to
-             * know which button gives it to them.
+             * Worth spelling out, but in one sentence rather than three: the
+             * download route rasterises and the print route does not, and the
+             * only part of that a teacher can act on is "use Print if you want to
+             * search or copy the text in the file afterwards".
              */}
             <p className="mt-2 rounded-lg bg-ink-50 px-2 py-1.5 text-[11px] leading-relaxed text-ink-500 dark:bg-ink-800 dark:text-ink-400">
-              Print → “Save as PDF” keeps the text selectable and the file smaller.
-              Download PDF is one click but stores each page as an image.
+              Both look the same on paper. Use Print → “Save as PDF” if you also want to search or
+              copy the text in the finished file.
             </p>
           </div>
         ) : null}

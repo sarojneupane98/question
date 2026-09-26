@@ -24,9 +24,18 @@ export interface NavItem {
   countKey?: 'papers' | 'bank'
 }
 
+/**
+ * `/editor` is deliberately not called "Create Question Paper" here.
+ *
+ * It creates nothing: it opens whichever paper is currently open, and only makes
+ * a blank one when there is nothing to open at all. Labelling it "Create" put two
+ * different actions under one name — this link, and the dashboard button that
+ * really does start a new paper — and a teacher who clicked it expecting a fresh
+ * page got their half-finished paper back instead.
+ */
 export const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
-  { href: '/editor', label: 'Create Question Paper', Icon: PenLine },
+  { href: '/editor', label: 'Current Paper', Icon: PenLine },
   { href: '/papers', label: 'My Question Papers', Icon: FileStack, countKey: 'papers' },
   { href: '/bank', label: 'Question Bank', Icon: BookMarked, countKey: 'bank' },
   { href: '/templates', label: 'Templates', Icon: LayoutTemplate },
@@ -168,8 +177,13 @@ export function Sidebar({
       {/* mobile drawer */}
       <div
         className={cn(
-          'no-print fixed inset-0 z-50 lg:hidden',
-          mobileOpen ? 'pointer-events-auto' : 'pointer-events-none',
+          'no-print fixed inset-0 z-50 transition-[visibility] lg:hidden',
+          // `invisible` is doing real work, not duplicating `pointer-events-none`:
+          // a translated-off-screen drawer is still in the tab order, so without
+          // `visibility: hidden` a keyboard user tabbing across the dashboard
+          // falls into six invisible links. The delay matches the slide-out
+          // below, so the drawer animates away instead of blinking out.
+          mobileOpen ? 'pointer-events-auto visible' : 'pointer-events-none invisible delay-200',
         )}
         aria-hidden={!mobileOpen}
       >

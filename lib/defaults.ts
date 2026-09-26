@@ -191,13 +191,19 @@ export const DEFAULT_SCHOOL: SchoolInfo = {
 }
 
 /**
- * The school the seed papers belong to, and the school preset a first-run user
- * starts with.
+ * The school the example paper belongs to.
  *
- * It is here rather than in `sample.ts` because `DEFAULT_SETTINGS` needs it and
- * `sample.ts` already imports from this file — the other direction would be a
- * cycle. Seeding the preset matters: without it, "Create Question Paper" would
- * produce a sheet with a blank header, which reads as broken rather than empty.
+ * Used *only* by `sample.ts`, for the example a teacher opens deliberately from
+ * the dashboard — never as anyone's starting point. It was once the first-run
+ * preset too, on the reasoning that a blank header reads as broken rather than
+ * empty; but `PaperHeader` already prints "School name" in that case, in all
+ * four header styles, so the blank never appeared. What the preset did instead
+ * was put one real school's name, address, telephone number and email address at
+ * the top of the first paper every teacher anywhere created — theirs to notice
+ * and delete, and theirs to accidentally print if they did not.
+ *
+ * It is here rather than in `sample.ts` because `sample.ts` already imports from
+ * this file and the other direction would be a cycle.
  */
 export const SAMPLE_SCHOOL: SchoolInfo = {
   name: 'Step by Step English Secondary School',
@@ -360,7 +366,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
   teacherName: '',
   teacherEmail: '',
-  schoolPreset: { ...SAMPLE_SCHOOL },
+  // Empty, so a new paper starts as the teacher's own. Settings → School
+  // information is where they fill it in once, after which every later paper
+  // picks it up from here.
+  schoolPreset: { ...DEFAULT_SCHOOL },
   layoutPreset: { ...DEFAULT_LAYOUT, margins: { ...DEFAULT_LAYOUT.margins } },
   confirmBeforeDelete: true,
   previewZoom: 0.85,

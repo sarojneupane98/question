@@ -20,6 +20,7 @@ import {
 import { Layers, Plus } from 'lucide-react'
 
 import { BankPickerDialog } from './BankPickerDialog'
+import { ImportQuestionsDialog } from './ImportQuestionsDialog'
 import { SectionCard } from './SectionCard'
 import { Button } from '@/components/ui/Button'
 import { questionLabelMap } from '@/lib/paperBlocks'
@@ -42,6 +43,7 @@ export function SectionList({ className }: { className?: string }) {
   const moveQuestion = useAppStore((s) => s.moveQuestion)
 
   const [bankSectionId, setBankSectionId] = useState<string | null>(null)
+  const [importSectionId, setImportSectionId] = useState<string | null>(null)
 
   const sensors = useSensors(
     // A few pixels of slop, so clicking a drag handle (or a button beside it)
@@ -135,6 +137,7 @@ export function SectionList({ className }: { className?: string }) {
                 total={paper.sections.length}
                 labels={labels}
                 onInsertFromBank={setBankSectionId}
+                onImport={setImportSectionId}
               />
             ))}
           </div>
@@ -154,14 +157,23 @@ export function SectionList({ className }: { className?: string }) {
       </div>
 
       {/*
-       * Mounted only while open and keyed on the target section, so the dialog's
-       * filters and selection reset between uses instead of carrying over.
+       * Both dialogs are mounted only while open and keyed on the target section,
+       * so their filters, selection and half-read files reset between uses
+       * instead of carrying over.
        */}
       {bankSectionId ? (
         <BankPickerDialog
           key={bankSectionId}
           sectionId={bankSectionId}
           onClose={() => setBankSectionId(null)}
+        />
+      ) : null}
+
+      {importSectionId ? (
+        <ImportQuestionsDialog
+          key={importSectionId}
+          sectionId={importSectionId}
+          onClose={() => setImportSectionId(null)}
         />
       ) : null}
     </div>

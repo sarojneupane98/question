@@ -15,6 +15,7 @@ import {
   Italic,
   List,
   ListOrdered,
+  MoreHorizontal,
   Rows3,
   Sigma,
   Strikethrough,
@@ -309,8 +310,11 @@ function ImageButton({ editor }: { editor: Editor }) {
       // crawl.
       const src = await prepareImageFile(file, QUESTION_IMAGE_LIMITS)
       editor.chain().focus().setImage({ src, alt: file.name }).run()
-    } catch {
-      toast.error('That image could not be added', 'Try a PNG, JPEG or WebP file.')
+    } catch (error) {
+      toast.error(
+        'That picture could not be added',
+        error instanceof Error ? error.message : 'Try a PNG, JPEG or WebP file.',
+      )
     } finally {
       setBusy(false)
       if (inputRef.current) inputRef.current.value = ''
@@ -341,7 +345,24 @@ function ImageButton({ editor }: { editor: Editor }) {
 /*  Toolbar                                                                   */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * WHAT IS ON SHOW AND WHAT IS NOT
+ * -------------------------------
+ * The full toolbar used to put seventeen icons in one row above a two-line
+ * question box. Bold, italic and underline were the same size and the same
+ * colour as "code block", which no school paper has ever needed, and the row
+ * wrapped onto three lines on a laptop.
+ *
+ * So the row now carries what a question is actually written with — emphasis,
+ * indices, symbols, lists, a picture, a table — and everything else moves one
+ * click away behind "More". Nothing was removed: strikethrough, code, alignment
+ * and clear-formatting all still work, they are simply no longer competing with
+ * Bold for the teacher's attention.
+ */
 export function RichTextToolbar({ editor, mode = 'full' }: { editor: Editor; mode?: ToolbarMode }) {
+  // Before the early return: hooks cannot sit behind a condition.
+  const [moreOpen, setMoreOpen] = useState(false)
+
   if (mode === 'none') return null
   const full = mode === 'full'
 
@@ -372,15 +393,6 @@ export function RichTextToolbar({ editor, mode = 'full' }: { editor: Editor; mod
       >
         <UnderlineIcon className="h-3.5 w-3.5" />
       </ToolButton>
-      {full ? (
-        <ToolButton
-          label="Strikethrough"
-          active={editor.isActive('strike')}
-          onClick={() => editor.chain().focus().toggleStrike().run()}
-        >
-          <Strikethrough className="h-3.5 w-3.5" />
-        </ToolButton>
-      ) : null}
 
       <Sep />
 
@@ -419,55 +431,77 @@ export function RichTextToolbar({ editor, mode = 'full' }: { editor: Editor; mod
           </ToolButton>
 
           <Sep />
-          <ToolButton
-            label="Inline code"
-            active={editor.isActive('code')}
-            onClick={() => editor.chain().focus().toggleCode().run()}
-          >
-            <Code className="h-3.5 w-3.5" />
-          </ToolButton>
-          <ToolButton
-            label="Code block"
-            active={editor.isActive('codeBlock')}
-            onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-          >
-            <Braces className="h-3.5 w-3.5" />
-          </ToolButton>
-
-          <Sep />
           <ImageButton editor={editor} />
           <TableMenu editor={editor} />
 
           <Sep />
           <ToolButton
-            label="Align left"
-            active={editor.isActive({ textAlign: 'left' })}
-            onClick={() => editor.chain().focus().setTextAlign('left').run()}
+            label={moreOpen ? 'Fewer formatting options' : 'More formatting options'}
+            active={moreOpen}
+            onClick={() => setMoreOpen(!moreOpen)}
           >
-            <AlignLeft className="h-3.5 w-3.5" />
-          </ToolButton>
-          <ToolButton
-            label="Align centre"
-            active={editor.isActive({ textAlign: 'center' })}
-            onClick={() => editor.chain().focus().setTextAlign('center').run()}
-          >
-            <AlignCenter className="h-3.5 w-3.5" />
-          </ToolButton>
-          <ToolButton
-            label="Align right"
-            active={editor.isActive({ textAlign: 'right' })}
-            onClick={() => editor.chain().focus().setTextAlign('right').run()}
-          >
-            <AlignRight className="h-3.5 w-3.5" />
+            <MoreHorizontal className="h-3.5 w-3.5" />
           </ToolButton>
 
-          <Sep />
-          <ToolButton
-            label="Clear formatting"
-            onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
-          >
-            <Eraser className="h-3.5 w-3.5" />
-          </ToolButton>
+          {moreOpen ? (
+            <div className="flex w-full flex-wrap items-center gap-0.5 border-t border-ink-200 pt-1 dark:border-ink-700">
+              <ToolButton
+                label="Strikethrough"
+                active={editor.isActive('strike')}
+                onClick={() => editor.chain().focus().toggleStrike().run()}
+              >
+                <Strikethrough className="h-3.5 w-3.5" />
+              </ToolButton>
+
+              <Sep />
+              <ToolButton
+                label="Align left"
+                active={editor.isActive({ textAlign: 'left' })}
+                onClick={() => editor.chain().focus().setTextAlign('left').run()}
+              >
+                <AlignLeft className="h-3.5 w-3.5" />
+              </ToolButton>
+              <ToolButton
+                label="Align centre"
+                active={editor.isActive({ textAlign: 'center' })}
+                onClick={() => editor.chain().focus().setTextAlign('center').run()}
+              >
+                <AlignCenter className="h-3.5 w-3.5" />
+              </ToolButton>
+              <ToolButton
+                label="Align right"
+                active={editor.isActive({ textAlign: 'right' })}
+                onClick={() => editor.chain().focus().setTextAlign('right').run()}
+              >
+                <AlignRight className="h-3.5 w-3.5" />
+              </ToolButton>
+
+              <Sep />
+              {/* Kept for computer-science papers, which really do print code. */}
+              <ToolButton
+                label="Inline code"
+                active={editor.isActive('code')}
+                onClick={() => editor.chain().focus().toggleCode().run()}
+              >
+                <Code className="h-3.5 w-3.5" />
+              </ToolButton>
+              <ToolButton
+                label="Code block"
+                active={editor.isActive('codeBlock')}
+                onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+              >
+                <Braces className="h-3.5 w-3.5" />
+              </ToolButton>
+
+              <Sep />
+              <ToolButton
+                label="Clear formatting"
+                onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
+              >
+                <Eraser className="h-3.5 w-3.5" />
+              </ToolButton>
+            </div>
+          ) : null}
         </>
       ) : null}
     </div>

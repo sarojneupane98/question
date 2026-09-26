@@ -6,6 +6,7 @@ import { CSS } from '@dnd-kit/utilities'
 import {
   ChevronDown,
   Copy,
+  FileInput,
   GripVertical,
   Library,
   Plus,
@@ -82,6 +83,7 @@ export function SectionCard({
   total,
   labels,
   onInsertFromBank,
+  onImport,
 }: {
   section: Section
   index: number
@@ -89,6 +91,7 @@ export function SectionCard({
   /** Printed question labels for the whole paper, keyed by question id. */
   labels: Map<string, string>
   onInsertFromBank: (sectionId: string) => void
+  onImport: (sectionId: string) => void
 }) {
   const settings = useSettings()
   const updateSection = useAppStore((s) => s.updateSection)
@@ -334,6 +337,10 @@ export function SectionCard({
             <Button size="sm" variant="ghost" onClick={() => onInsertFromBank(section.id)}>
               <Library className="h-4 w-4" />
               From bank
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => onImport(section.id)}>
+              <FileInput className="h-4 w-4" />
+              Bring in questions
             </Button>
           </div>
         </div>

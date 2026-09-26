@@ -85,6 +85,26 @@ function sheetElements(): HTMLElement[] {
   if (sheets.length === 0) {
     throw new PdfExportError('The paper has no pages to export yet.')
   }
+
+  /*
+   * Refuse to rasterise a sheet that has no size.
+   *
+   * html2canvas does not object to a zero-sized element: it returns a 0x0 canvas,
+   * jsPDF embeds it as a `/Width 0 /Height 0` image, and the teacher gets a
+   * plausible-looking 3 KB PDF with nothing on it and a toast saying "PDF
+   * downloaded". A blank file the app called a success is far worse than an
+   * error, so this is checked rather than trusted.
+   *
+   * It happens when the preview column is not laid out — the editor hides it
+   * below `lg`, and anything inside `display: none` measures zero.
+   */
+  const collapsed = sheets.some((sheet) => sheet.offsetWidth === 0 || sheet.offsetHeight === 0)
+  if (collapsed) {
+    throw new PdfExportError(
+      'The paper preview is not on screen, so there is nothing to capture. Switch to the Preview tab (or widen the window) and try again.',
+    )
+  }
+
   return sheets
 }
 
