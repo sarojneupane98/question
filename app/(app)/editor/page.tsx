@@ -132,17 +132,39 @@ export default function EditorPage() {
         )}
       >
         <div className="mx-auto max-w-3xl space-y-4 p-4 sm:p-6">
-          {/* Mobile only: the preview cannot sit beside the editor on a phone. */}
-          <Segmented
-            className="lg:hidden"
-            size="sm"
-            value={tab}
-            onChange={setTab}
-            options={[
-              { value: 'edit', label: 'Edit' },
-              { value: 'preview', label: 'Preview' },
-            ]}
-          />
+          {/*
+           * Mobile only: the preview cannot sit beside the editor on a phone.
+           *
+           * Sticky, not fixed — and that follows from the scroll architecture
+           * rather than being a style choice. The scrolling happens in the column
+           * above, not on the body, so a sticky child pins to *that* container's
+           * top edge, which is already below the top bar: nothing to measure,
+           * nothing to offset. It also keeps its place in the flow, so pinning
+           * shifts nothing.
+           *
+           * A fixed bar would have had to be positioned against the header by
+           * hand, and the usual place to put one — floating at the bottom — is the
+           * one place it must not go: the phone keyboard would either cover it or
+           * push it up over the question being typed into.
+           *
+           * `-mx-4` lets the backdrop reach the column's edges so text cannot
+           * scroll through the gap beside it. The blur, border and translucency
+           * are the top bar's own (`components/layout/TopBar.tsx`), so this reads
+           * as the same piece of furniture and not a floating widget. `z-20`
+           * deliberately sits below the editor's popovers (`z-30`/`z-40`), which
+           * should open over the bar rather than under it.
+           */}
+          <div className="sticky top-0 z-20 -mx-4 border-b border-ink-200 bg-white/90 px-4 py-2.5 backdrop-blur-md sm:-mx-6 sm:px-6 lg:hidden dark:border-ink-800 dark:bg-ink-900/90">
+            <Segmented
+              size="sm"
+              value={tab}
+              onChange={setTab}
+              options={[
+                { value: 'edit', label: 'Edit' },
+                { value: 'preview', label: 'Preview' },
+              ]}
+            />
+          </div>
 
           <PaperMetaForm />
           <InstructionsEditor />
